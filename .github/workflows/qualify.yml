@@ -38,6 +38,16 @@ jobs:
       options: --user root
     steps:
       - uses: actions/checkout@v7
+      - name: Cache OpenWrt Rust toolchain and Cargo registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            /builder/dl/cargo
+            /builder/rustup
+            /builder/cargo
+          key: rill-openwrt-rust-${{ runner.os }}-${{ matrix.branch }}-${{ hashFiles('package/rill-runtime/Makefile', 'scripts/prepare_rust_toolchain.sh') }}
+          restore-keys: |
+            rill-openwrt-rust-${{ runner.os }}-${{ matrix.branch }}-
       - name: Prepare SDK and build package
         shell: bash
         run: |
