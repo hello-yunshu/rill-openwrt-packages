@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "upstream": {
+    "repository": "https://github.com/hello-yunshu/rill-ml",
+    "tag": "v1.5.5",
+    "version": "1.5.5",
+    "commit": "17edb6d8aea6a6bced737597061eefa088838dcc",
+    "releaseUrl": "https://github.com/hello-yunshu/rill-ml/releases/tag/v1.5.5",
+    "archiveUrl": "https://github.com/hello-yunshu/rill-ml/archive/refs/tags/v1.5.5.tar.gz",
+    "archiveSha256": "dd35ff605a68f4285c0aa7c09c14f4f29bf17dfbde03c05c4faa21a867992361",
+    "publishedAt": "2026-08-27T10:55:53Z"
+  },
+  "package": {
+    "name": "rill-runtime",
+    "version": "1.5.5",
+    "release": 1,
+    "canonicalRecipe": "package/rill-runtime/Makefile",
+    "binary": "/usr/bin/rill-runtime"
+  },
+  "qualification": {
+    "status": "not_qualified",
+    "openwrt24_10_x86_64_ipk": "not_evaluated",
+    "openwrt25_12_x86_64_apk": "not_evaluated"
+  }
+}

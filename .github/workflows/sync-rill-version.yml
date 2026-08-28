@@ -1,0 +1,23 @@
+name: Check Rill Stable package drift
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Require canonical package to match published Stable
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_upstream_version.py --json | tee "$RUNNER_TEMP/upstream.json"
+          jq -e '.inSync == true' "$RUNNER_TEMP/upstream.json"

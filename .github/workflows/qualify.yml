@@ -10,6 +10,18 @@ permissions:
   contents: read
 
 jobs:
+  upstream-version-sync:
+    name: Upstream Stable version sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Require latest published Rill Stable
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_upstream_version.py --json | tee "$RUNNER_TEMP/upstream-version.json"
+          jq -e '.inSync == true' "$RUNNER_TEMP/upstream-version.json"
+
   package:
     name: ${{ matrix.pkgtype }} OpenWrt ${{ matrix.branch }} x86_64
     runs-on: ubuntu-latest
@@ -25,7 +37,7 @@ jobs:
       image: ghcr.io/openwrt/sdk:x86_64-${{ matrix.branch }}
       options: --user root
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Prepare SDK and build package
         shell: bash
         run: |
@@ -55,20 +67,86 @@ jobs:
           cd /builder
           files=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}")
           test -n "$files"
+          expected_version=$(sed -n 's/^PKG_VERSION:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")
+          expected_release=$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")
           printf '%s\n' "$files" | while IFS= read -r file; do
             case "${file##*.}" in
               ipk)
                 members=$(tar -tf "$file")
                 data=$(printf '%s\n' "$members" | grep -E '^\./data\.tar' | head -n1)
+                control=$(printf '%s\n' "$members" | grep -E '^\./control\.tar' | head -n1)
                 test -n "$data"
+                test -n "$control"
+                control_text=$(tar -xOf "$file" "$control" | tar -xOf - ./control)
+                grep -Fx 'Package: rill-runtime' <<<"$control_text"
+                grep -Eq "^Version: ${expected_version}-${expected_release}$" <<<"$control_text"
+                grep -Fx 'Architecture: x86_64' <<<"$control_text"
                 tar -xOf "$file" "$data" | tar -tf - | sed 's#^\./##' | grep -Fx usr/bin/rill-runtime
                 ! tar -xOf "$file" "$data" | tar -tf - | sed 's#^\./##' | grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/'
                 ;;
               apk)
                 test -x /builder/staging_dir/host/bin/apk
+                mkdir -p "$RUNNER_TEMP/apk-root"
                 /builder/staging_dir/host/bin/apk --root "$RUNNER_TEMP/apk-root" --network=no --repositories-file /dev/null add --initdb --no-scripts
+                pkginfo=$(tar -tf "$file" | grep -E '(^|/)\.PKGINFO$' | head -n1)
+                test -n "$pkginfo"
+                pkginfo_text=$(tar -xOf "$file" "$pkginfo")
+                grep -Fx 'pkgname = rill-runtime' <<<"$pkginfo_text"
+                grep -Fx "pkgver = ${expected_version}-r${expected_release}" <<<"$pkginfo_text"
+                grep -Fx 'arch = x86_64' <<<"$pkginfo_text"
                 /builder/staging_dir/host/bin/apk --root "$RUNNER_TEMP/apk-root" --allow-untrusted manifest "$file" | awk '{print $NF}' | grep -Fx usr/bin/rill-runtime
                 ! /builder/staging_dir/host/bin/apk --root "$RUNNER_TEMP/apk-root" --allow-untrusted manifest "$file" | awk '{print $NF}' | grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/'
                 ;;
             esac
           done
+          mkdir -p "$GITHUB_WORKSPACE/output"
+          printf '%s\n' "$files" | while IFS= read -r file; do cp "$file" "$GITHUB_WORKSPACE/output/"; done
+          (cd "$GITHUB_WORKSPACE/output" && sha256sum *) > "$GITHUB_WORKSPACE/output/SHA256SUMS"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rill-runtime-${{ matrix.pkgtype }}-${{ matrix.branch }}
+          path: output/
+          if-no-files-found: error
+
+  qualification-evidence:
+    name: Qualification evidence
+    if: always()
+    needs: [upstream-version-sync, package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Require build and version gates
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          echo "$RESULTS" | jq -e 'to_entries | all(.value.result == "success")'
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: rill-runtime-*
+          path: evidence/artifacts
+          merge-multiple: true
+      - name: Generate immutable provenance evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^PKG_VERSION:=//p' package/rill-runtime/Makefile)
+          release=$(sed -n 's/^PKG_RELEASE:=//p' package/rill-runtime/Makefile)
+          upstream_commit=$(jq -r '.upstream.commit' metadata/rill-runtime.json)
+          archive_sha=$(jq -r '.upstream.archiveSha256' metadata/rill-runtime.json)
+          mapfile -t assets < <(find evidence/artifacts -type f \( -name '*.ipk' -o -name '*.apk' \) -print | sort)
+          test "${#assets[@]}" -eq 2
+          asset_json='[]'
+          for asset in "${assets[@]}"; do
+            asset_json=$(jq --arg path "${asset#evidence/artifacts/}" --arg sha "$(sha256sum "$asset" | awk '{print $1}')" '. + [{path:$path,sha256:$sha}]' <<<"$asset_json")
+          done
+          jq -n --arg commit "$GITHUB_SHA" --arg runId "$GITHUB_RUN_ID" --arg version "$version" --arg release "$release" --arg upstreamCommit "$upstream_commit" --arg archiveSha "$archive_sha" --argjson assets "$asset_json" \
+            '{schemaVersion:1,packageCommit:$commit,runId:$runId,package:{name:"rill-runtime",version:$version,release:($release|tonumber),recipe:"package/rill-runtime/Makefile"},upstream:{repository:"hello-yunshu/rill-ml",tag:("v"+$version),commit:$upstreamCommit,archiveSha256:$archiveSha},artifacts:$assets,qualificationState:"automated-qualification",releaseEligible:true}' > qualification.json
+          jq empty qualification.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: qualification-evidence
+          path: qualification.json
+          if-no-files-found: error
