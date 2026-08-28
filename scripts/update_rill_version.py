@@ -69,11 +69,6 @@ def main() -> int:
             "canonicalRecipe": "package/rill-runtime/Makefile",
             "binary": "/usr/bin/rill-runtime",
         },
-        "qualification": {
-            "status": "not_qualified",
-            "openwrt24_10_x86_64_ipk": "not_evaluated",
-            "openwrt25_12_x86_64_apk": "not_evaluated",
-        },
     }
     metadata_path = ROOT / "metadata/rill-runtime.json"
     metadata_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

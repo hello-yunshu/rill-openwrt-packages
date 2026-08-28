@@ -16,7 +16,7 @@ include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 
 define Build/Compile
-	$(call Build/Compile/Cargo,crates/rill-runtime)
+	$(call Build/Compile/Cargo,crates/rill-runtime,--bin rill-runtime)
 endef
 
 define Package/rill-runtime

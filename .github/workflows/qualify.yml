@@ -54,6 +54,8 @@ jobs:
             echo 'Rust feed still enables CI LLVM downloads' >&2
             exit 1
           fi
+          RUST_STAGING_DIR=/builder/staging_dir/host \
+            "$GITHUB_WORKSPACE/scripts/prepare_rust_toolchain.sh"
           mkdir -p package/rill-runtime
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime/." package/rill-runtime/
           echo 'CONFIG_PACKAGE_rill-runtime=y' >> .config
@@ -101,7 +103,7 @@ jobs:
           done
           mkdir -p "$GITHUB_WORKSPACE/output"
           printf '%s\n' "$files" | while IFS= read -r file; do cp "$file" "$GITHUB_WORKSPACE/output/"; done
-          (cd "$GITHUB_WORKSPACE/output" && sha256sum *) > "$GITHUB_WORKSPACE/output/SHA256SUMS"
+          (cd "$GITHUB_WORKSPACE/output" && sha256sum -- *) > "$GITHUB_WORKSPACE/output/SHA256SUMS"
       - uses: actions/upload-artifact@v7
         with:
           name: rill-runtime-${{ matrix.pkgtype }}-${{ matrix.branch }}
