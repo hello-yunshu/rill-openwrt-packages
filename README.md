@@ -12,3 +12,5 @@ for the OpenWrt release they qualify.
 
 The qualification workflow covers x86_64 IPK on OpenWrt 24.10.5 and x86_64 APK
 on OpenWrt 25.12.0. Other targets require separate real package evidence.
+`scripts/check_upstream_version.py` is the fail-closed drift guard, while
+`scripts/update_rill_version.py` updates only an immutable Stable tag archive.

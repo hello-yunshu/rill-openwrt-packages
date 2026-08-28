@@ -15,6 +15,10 @@ RUST_PKG_LOCKED:=1
 include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
 
+define Build/Compile
+	$(call Build/Compile/Cargo,crates/rill-runtime)
+endef
+
 define Package/rill-runtime
   SECTION:=utils
   CATEGORY:=Utilities
