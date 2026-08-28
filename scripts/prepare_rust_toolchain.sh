@@ -24,15 +24,11 @@ fi
 
 export PATH="$CARGO_HOME/bin:$PATH"
 rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --target "$RUST_TARGET" --no-self-update
-rustc_path="$(rustup which rustc --toolchain "$RUST_TOOLCHAIN")"
-cargo_path="$(rustup which cargo --toolchain "$RUST_TOOLCHAIN")"
-[[ "$("$rustc_path" --version)" == rustc\ "$RUST_TOOLCHAIN"* ]]
-
 if [[ -n "$RUST_STAGING_DIR" ]]; then
-    install -d "$RUST_STAGING_DIR/bin"
-    install -m 0755 "$rustc_path" "$RUST_STAGING_DIR/bin/rustc"
-    install -m 0755 "$cargo_path" "$RUST_STAGING_DIR/bin/cargo"
+    RUST_TOOLCHAIN="$RUST_TOOLCHAIN" RUST_STAGING_DIR="$RUST_STAGING_DIR" \
+        "$GITHUB_WORKSPACE/scripts/stage_rust_toolchain.sh"
 fi
 
+rustc_path="$(rustup which rustc --toolchain "$RUST_TOOLCHAIN")"
 echo "prepared Rust toolchain: $("$rustc_path" --version)"
 echo "target: $RUST_TARGET"
