@@ -151,15 +151,9 @@ jobs:
               apk)
                 test -x /builder/staging_dir/host/bin/apk
                 package_dump=$(/builder/staging_dir/host/bin/apk --allow-untrusted adbdump --format json "$file")
-                jq -e \
-                  --arg name rill-runtime \
-                  --arg version "${expected_version}-r${expected_release}" \
-                  --arg arch x86_64 \
-                  'any(.. | objects;
-                    ((.name? // .package? // "") == $name)
-                    and ((.version? // "") == $version)
-                    and ((.arch? // .architecture? // "") == $arch))' \
-                  <<<"$package_dump" >/dev/null
+                grep -Eq '"name"[[:space:]]*:[[:space:]]*"rill-runtime"' <<<"$package_dump"
+                grep -Eq "\"version\"[[:space:]]*:[[:space:]]*\"${expected_version}-r${expected_release}\"" <<<"$package_dump"
+                grep -Eq '"arch"[[:space:]]*:[[:space:]]*"x86_64"|"architecture"[[:space:]]*:[[:space:]]*"x86_64"' <<<"$package_dump"
                 apk_root=$(mktemp -d "$RUNNER_TEMP/rill-apk-root.XXXXXX")
                 /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no \
                   --repositories-file /dev/null add --initdb --no-scripts
