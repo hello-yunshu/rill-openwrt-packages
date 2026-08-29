@@ -160,6 +160,7 @@ jobs:
                 cp "$apk_file" "$repo_pkg"
                 package_dump=$(/builder/staging_dir/host/bin/apk adbdump --format yaml "$apk_file")
                 test -n "$package_dump"
+                printf '%s\n' "$package_dump"
                 grep -Eq '^[[:space:]]*name: rill-runtime$' <<<"$package_dump"
                 grep -Eq "^[[:space:]]*version: ${expected_version}-r${expected_release}$" <<<"$package_dump"
                 grep -Eq '^[[:space:]]*arch: x86_64$' <<<"$package_dump"
