@@ -163,7 +163,7 @@ jobs:
                 /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no \
                   --repositories-file /dev/null add --initdb --no-scripts
                 /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no \
-                  --repositories-file /dev/null --repository "$repo_dir" \
+                  --repositories-file /dev/null --repository "$apk_index" \
                   --allow-untrusted --force-non-repository --force-broken-world \
                   add --no-scripts "rill-runtime=${expected_version}-r${expected_release}"
                 installed="$apk_root/lib/apk/db/installed"
