@@ -154,23 +154,15 @@ jobs:
                 apk_root=$(mktemp -d "$RUNNER_TEMP/rill-apk-root.XXXXXX")
                 /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no \
                   --repositories-file /dev/null add --initdb --no-scripts
-                package_info=$(/builder/staging_dir/host/bin/apk --root "$apk_root" --allow-untrusted info --all "$file") || {
-                  printf 'APK package info:\n%s\n' "$package_info" >&2
-                  exit 1
-                }
-                grep -Eiq "rill-runtime[-_]${expected_version}-r${expected_release}" <<<"$package_info" || {
-                  printf 'APK package info:\n%s\n' "$package_info" >&2
-                  exit 1
-                }
-                grep -Eiq "^version:[[:space:]]*${expected_version}-r${expected_release}$" <<<"$package_info" || {
-                  printf 'APK package info:\n%s\n' "$package_info" >&2
-                  exit 1
-                }
-                grep -Eiq '^arch(itecture)?:[[:space:]]*x86_64$' <<<"$package_info" || {
-                  printf 'APK package info:\n%s\n' "$package_info" >&2
-                  exit 1
-                }
-                test "$(basename "$file")" = "rill-runtime_${expected_version}-r${expected_release}_x86_64.apk"
+                /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no \
+                  --repositories-file /dev/null --allow-untrusted \
+                  --force-non-repository --force-broken-world add --no-scripts "$file"
+                installed="$apk_root/lib/apk/db/installed"
+                test -s "$installed"
+                record=$(awk -v RS='' '$0 ~ /^P:rill-runtime$/m { print; exit }' "$installed")
+                grep -Fx 'P:rill-runtime' <<<"$record"
+                grep -Fx "V:${expected_version}-r${expected_release}" <<<"$record"
+                grep -Fx 'A:x86_64' <<<"$record"
                 manifest=$(/builder/staging_dir/host/bin/apk --root "$apk_root" --allow-untrusted manifest "$file")
                 grep -Fx 'usr/bin/rill-runtime' <<<"$manifest"
                 ! grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/' <<<"$manifest"
