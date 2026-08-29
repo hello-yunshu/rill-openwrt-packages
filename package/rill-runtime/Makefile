@@ -11,8 +11,8 @@ PKG_HASH:=c06a792811d1f08aa7b640c10ee36047c44f825cf7272aa0f75c42ab60806a84
 PKG_BUILD_DIR:=$(BUILD_DIR)/rill-ml-$(PKG_VERSION)
 RUST_PKG_LOCKED:=1
 # Allow the OpenWrt jobserver to share a bounded amount of Cargo parallelism.
-# The qualification workflow starts make with -j4; without this, rust-package.mk
-# deliberately falls back to an explicit cargo -j1.
+# The qualification workflow starts GNU Make with nproc+1 jobs so the OpenWrt
+# jobserver can share bounded parallelism with Cargo.
 PKG_BUILD_PARALLEL:=1
 
 include $(INCLUDE_DIR)/package.mk
