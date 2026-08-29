@@ -151,9 +151,18 @@ jobs:
               apk)
                 test -x /builder/staging_dir/host/bin/apk
                 package_dump=$(/builder/staging_dir/host/bin/apk --allow-untrusted adbdump --format json "$file")
-                grep -Eq '"(name|P|package)"[[:space:]]*:[[:space:]]*"rill-runtime"' <<<"$package_dump"
-                grep -Eq "\"(version|V)\"[[:space:]]*:[[:space:]]*\"${expected_version}-r${expected_release}\"" <<<"$package_dump"
-                grep -Eq '"(arch|A|architecture)"[[:space:]]*:[[:space:]]*"x86_64"' <<<"$package_dump"
+                grep -Eq '"(name|P|package|pkgname)"[[:space:]]*:[[:space:]]*"rill-runtime"' <<<"$package_dump" || {
+                  printf 'APK metadata dump:\n%s\n' "$package_dump" >&2
+                  exit 1
+                }
+                grep -Eq "\"(version|V|pkgver)\"[[:space:]]*:[[:space:]]*\"${expected_version}-r${expected_release}\"" <<<"$package_dump" || {
+                  printf 'APK metadata dump:\n%s\n' "$package_dump" >&2
+                  exit 1
+                }
+                grep -Eq '"(arch|A|architecture|pkgarch)"[[:space:]]*:[[:space:]]*"x86_64"' <<<"$package_dump" || {
+                  printf 'APK metadata dump:\n%s\n' "$package_dump" >&2
+                  exit 1
+                }
                 apk_root=$(mktemp -d "$RUNNER_TEMP/rill-apk-root.XXXXXX")
                 /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no \
                   --repositories-file /dev/null add --initdb --no-scripts
