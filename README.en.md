@@ -32,12 +32,13 @@ Current provenance:
 
 | OpenWrt SDK | Architecture | Format |
 | --- | --- | --- |
-| <code>24.10.5</code> | <code>x86_64</code> | IPK |
-| <code>25.12.0</code> | <code>x86_64</code> | APK |
+| <code>24.10.5</code> | <code>x86_64</code> / <code>aarch64_generic</code> | IPK |
+| <code>25.12.0</code> | <code>x86_64</code> / <code>aarch64_generic</code> | APK |
 
 Other targets require their own real build, installation, runtime, and
-artifact evidence. A Rust target or a cross-compilation result is not, by
-itself, a support claim.
+artifact evidence. This matrix proves package-level qualification only for
+x86_64 and aarch64_generic; a Rust target or a cross-compilation result is not,
+by itself, a support claim for MIPS, ARMv7, or another device architecture.
 
 ## Build
 
