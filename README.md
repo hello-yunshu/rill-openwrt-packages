@@ -108,15 +108,17 @@ OpenWrt qualification。
 
 1. 校验上游最新公开 Stable tag；
 2. 使用官方 OpenWrt SDK 构建 IPK 和 APK；
-3. 使用 Rust <code>1.94.0</code> 构建完整的默认 Runtime 能力；
+3. 在目标 SDK 的 host staging 中接管 Rust 工具链，使用 Rust <code>1.94.0</code>
+   构建完整的默认 Runtime 能力，不编译 SDK 自带的旧 <code>rust/host</code>；
 4. 保留 OpenWrt <code>rust-package.mk</code> 的交叉编译、链接器和 staging 规则；
 5. 检查包元数据、架构、版本和最终 payload；
 6. 确认 payload 包含 <code>/usr/bin/rill-runtime</code>，且不包含 <code>rill-pack</code>；
 7. 上传带包 SHA-256、上游 commit、来源 archive hash 和 run ID 的证据。
 
-工作流会缓存可复用的 SDK/Cargo/Rust 输入，但 cache 只用于加速，不构成发布
-身份或 qualification 证据。cache miss、queued run 或 in-progress run 都不能
-被当作通过。
+工作流会按 OpenWrt SDK 分支缓存可复用的下载内容、Cargo/Rust 输入以及安全范围内的
+Rust target 编译结果，并通过 OpenWrt jobserver 以 <code>-j4</code> 运行包构建。cache
+和并行编译只用于加速，不构成发布身份或 qualification 证据。cache miss、queued run
+或 in-progress run 都不能被当作通过。
 
 ## 下游消费约定
 

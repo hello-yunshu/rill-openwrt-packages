@@ -51,8 +51,12 @@ Use a matching OpenWrt SDK:
     make package/rill-runtime/compile V=s
 
 The official qualification workflow builds both package formats, checks the
-final payload, and uploads immutable provenance evidence. It uses Rust
-<code>1.94.0</code> while retaining OpenWrt's <code>rust-package.mk</code> build helper.
+final payload, and uploads immutable provenance evidence. It stages Rust
+<code>1.94.0</code> into the target SDK host staging area while retaining
+OpenWrt's <code>rust-package.mk</code> build helper, so the SDK's older
+<code>rust/host</code> compiler is not rebuilt.
+Per-SDK caches cover downloads, Cargo/Rust inputs, and safe Rust target output;
+the package build uses bounded <code>-j4</code> jobserver parallelism.
 
 Check Stable drift locally:
 
