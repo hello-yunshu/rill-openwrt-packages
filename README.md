@@ -42,12 +42,13 @@ GitHub Actions 的 canonical qualification workflow 当前覆盖以下组合：
 
 | OpenWrt SDK | 架构 | 包格式 |
 | --- | --- | --- |
-| <code>24.10.5</code> | <code>x86_64</code> | IPK |
-| <code>25.12.0</code> | <code>x86_64</code> | APK |
+| <code>24.10.5</code> | <code>x86_64</code> / <code>aarch64_generic</code> | IPK |
+| <code>25.12.0</code> | <code>x86_64</code> / <code>aarch64_generic</code> | APK |
 
 这张表只描述仓库实际执行过的 qualification 矩阵。其他架构、其他 OpenWrt
-版本和真实设备必须单独构建、安装、运行并保存证据，不能从存在 Rust target
-或能够交叉编译推导出已支持。
+版本和真实设备必须单独构建、安装、运行并保存证据；当前矩阵只证明
+x86_64 与 aarch64_generic 的包级 qualification，不能从存在 Rust target
+或能够交叉编译推导出 MIPS、ARMv7 或其他设备架构已支持。
 
 ## 快速开始
 

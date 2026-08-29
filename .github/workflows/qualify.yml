@@ -32,7 +32,7 @@ jobs:
           jq -e '.inSync == true' "$RUNNER_TEMP/upstream-version.json"
 
   package:
-    name: ${{ matrix.pkgtype }} OpenWrt ${{ matrix.branch }} x86_64
+    name: ${{ matrix.pkgtype }} OpenWrt ${{ matrix.branch }} ${{ matrix.package_arch }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -40,29 +40,99 @@ jobs:
         include:
           - branch: v24.10.5
             pkgtype: ipk
+            openwrt_target: x86
+            openwrt_subtarget: 64
+            sdk_prefix: x86-64
+            package_arch: x86_64
+            rust_target: x86_64-unknown-linux-musl
+            elf_machine: 'Advanced Micro Devices X86-64'
+            support_tier: p0-openwrt-package
+          - branch: v24.10.5
+            pkgtype: ipk
+            openwrt_target: armsr
+            openwrt_subtarget: armv8
+            sdk_prefix: armsr-armv8
+            package_arch: aarch64_generic
+            rust_target: aarch64-unknown-linux-musl
+            elf_machine: AArch64
+            support_tier: p0-openwrt-package
           - branch: v25.12.0
             pkgtype: apk
-    container:
-      image: ghcr.io/openwrt/sdk:x86_64-${{ matrix.branch }}
-      options: --user root
+            openwrt_target: x86
+            openwrt_subtarget: 64
+            sdk_prefix: x86-64
+            package_arch: x86_64
+            rust_target: x86_64-unknown-linux-musl
+            elf_machine: 'Advanced Micro Devices X86-64'
+            support_tier: p0-openwrt-package
+          - branch: v25.12.0
+            pkgtype: apk
+            openwrt_target: armsr
+            openwrt_subtarget: armv8
+            sdk_prefix: armsr-armv8
+            package_arch: aarch64_generic
+            rust_target: aarch64-unknown-linux-musl
+            elf_machine: AArch64
+            support_tier: p0-openwrt-package
     steps:
       - uses: actions/checkout@v7
+      - name: Install SDK host dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y build-essential file gawk gettext libncurses-dev libssl-dev python3 rsync unzip wget zstd
+      - name: Resolve official SDK identity
+        id: openwrt-sdk
+        shell: bash
+        env:
+          OPENWRT_TARGET: ${{ matrix.openwrt_target }}
+          OPENWRT_SUBTARGET: ${{ matrix.openwrt_subtarget }}
+          SDK_PREFIX: ${{ matrix.sdk_prefix }}
+        run: |
+          set -euo pipefail
+          base="https://downloads.openwrt.org/releases/${{ matrix.branch }}/targets/$OPENWRT_TARGET/$OPENWRT_SUBTARGET"
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 30 --max-time 120 "$base/" -o "$RUNNER_TEMP/sdk-index.html"
+          sdk=$(grep -oE 'openwrt-sdk-${{ matrix.branch }}-[^"< ]+[.]tar[.]zst' "$RUNNER_TEMP/sdk-index.html" | grep -m1 -F "${SDK_PREFIX}_")
+          test -n "$sdk"
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 30 --max-time 120 "$base/sha256sums" -o "$RUNNER_TEMP/sdk-sha256sums"
+          sdk_archive_sha=$(awk -v f="*$sdk" '$2==f {print $1}' "$RUNNER_TEMP/sdk-sha256sums")
+          [[ "$sdk_archive_sha" =~ ^[0-9a-f]{64}$ ]]
+          {
+            echo "SDK_BASE=$base"
+            echo "SDK_ARCHIVE_NAME=$sdk"
+            echo "SDK_ARCHIVE_SHA256=$sdk_archive_sha"
+          } >> "$GITHUB_ENV"
+          echo "filename=$sdk" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sdk_archive_sha" >> "$GITHUB_OUTPUT"
+      - name: Download and verify official SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/$SDK_ARCHIVE_NAME"
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 30 --max-time 600 "$SDK_BASE/$SDK_ARCHIVE_NAME" -o "$archive"
+          printf '%s *%s\n' "$SDK_ARCHIVE_SHA256" "$archive" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/openwrt-sdk"
+          tar --zstd -xf "$archive" -C "$RUNNER_TEMP/openwrt-sdk"
+          sdkdir=$(find "$RUNNER_TEMP/openwrt-sdk" -maxdepth 1 -type d -name "openwrt-sdk-${{ matrix.branch }}-${{ matrix.sdk_prefix }}_*" -print -quit)
+          test -n "$sdkdir"
+          echo "SDKDIR=$sdkdir" >> "$GITHUB_ENV"
       - name: Cache OpenWrt downloads, Rust toolchain, Cargo and build output
         uses: actions/cache@v6
         with:
           path: |
-            /builder/dl
-            /builder/rustup
-            /builder/cargo
-            /builder/build_dir/target-*/rill-ml-*/target
-          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ hashFiles('package/rill-runtime/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
+            ${{ env.SDKDIR }}/dl
+            ${{ runner.temp }}/rustup
+            ${{ runner.temp }}/cargo
+            ${{ env.SDKDIR }}/build_dir/target-*/rill-ml-*/target
+          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('package/rill-runtime/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
           restore-keys: |
-            rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-
+            rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-
       - name: Prepare SDK and build package
         shell: bash
         run: |
           set -euo pipefail
-          cd /builder
+          cd "$SDKDIR"
           ./scripts/feeds update base packages
           ./scripts/feeds install rust
           mkdir -p package/rill-runtime
@@ -72,7 +142,7 @@ jobs:
           staging_dir=$(make -s val.STAGING_DIR)
           test -n "$staging_dir"
           rust_staging_dir="$staging_dir/host"
-          RUST_STAGING_DIR="$rust_staging_dir" \
+          RUST_TARGET="${{ matrix.rust_target }}" RUSTUP_HOME="$RUNNER_TEMP/rustup" CARGO_HOME="$RUNNER_TEMP/cargo" RUST_STAGING_DIR="$rust_staging_dir" \
             "$GITHUB_WORKSPACE/scripts/prepare_rust_toolchain.sh"
           export PATH="$rust_staging_dir/bin:$PATH"
           export RUSTC="$rust_staging_dir/bin/rustc"
@@ -105,7 +175,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd /builder
+          cd "$SDKDIR"
           files=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}")
           test -n "$files"
           expected_version=$(sed -n 's/^PKG_VERSION:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")
@@ -142,35 +212,47 @@ jobs:
                 grep -E '^(Package|Version|Architecture): ' "$control_file"
                 grep -Fx 'Package: rill-runtime' <<<"$control_text"
                 grep -Eq "^Version: ${expected_version}-r?${expected_release}$" <<<"$control_text"
-                grep -Fx 'Architecture: x86_64' <<<"$control_text"
+                grep -Fx 'Architecture: ${{ matrix.package_arch }}' <<<"$control_text"
                 find "$data_dir" -type f -o -type l | sed "s#^$data_dir/##; s#^\./##" | grep -Fx usr/bin/rill-runtime
                 ! find "$data_dir" -type f -o -type l | sed "s#^$data_dir/##; s#^\./##" | grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/'
+                readelf -h "$data_dir/usr/bin/rill-runtime" | grep -Fx '  Class:                             ELF64'
+                readelf -h "$data_dir/usr/bin/rill-runtime" | grep -F "  Data:                              2's complement, little endian"
+                readelf -h "$data_dir/usr/bin/rill-runtime" | grep -Fx '  Machine:                           ${{ matrix.elf_machine }}'
                 rm -rf "$package_dir"
                 trap - RETURN
                 ;;
               apk)
-                test -x /builder/staging_dir/host/bin/apk
+                test -x "$SDKDIR/staging_dir/host/bin/apk"
                 apk_file=$(realpath "$file")
                 test -f "$apk_file"
-                package_dump=$(/builder/staging_dir/host/bin/apk adbdump --format yaml "$apk_file")
+                package_dump=$("$SDKDIR/staging_dir/host/bin/apk" adbdump --format yaml "$apk_file")
                 test -n "$package_dump"
                 info_dump=$(awk '/^info:/{found=1} found && /^paths:/{exit} found {print}' <<<"$package_dump")
                 paths_dump=$(awk '/^paths:/{found=1} found {print}' <<<"$package_dump")
                 grep -Eq '^[[:space:]]+name: rill-runtime$' <<<"$info_dump"
                 grep -Eq "^[[:space:]]+version: ${expected_version}-r${expected_release}$" <<<"$info_dump"
-                grep -Eq '^[[:space:]]+arch: x86_64$' <<<"$info_dump"
+                grep -Eq '^[[:space:]]+arch: ${{ matrix.package_arch }}$' <<<"$info_dump"
                 grep -Eq '^[[:space:]]+- name: usr/bin$' <<<"$paths_dump"
                 grep -Eq '^[[:space:]]+- name: rill-runtime$' <<<"$paths_dump"
                 ! grep -Eq '^[[:space:]]+- name: rill-pack($|/)' <<<"$paths_dump"
+                extract_dir=$(mktemp -d "$RUNNER_TEMP/rill-apk.XXXXXX")
+                "$SDKDIR/staging_dir/host/bin/apk" extract --root "$extract_dir" "$apk_file"
+                readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F 'Class:                             ELF64'
+                readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F "Data:                              2's complement, little endian"
+                readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F 'Machine:                           ${{ matrix.elf_machine }}'
+                rm -rf "$extract_dir"
                 ;;
             esac
           done
           mkdir -p "$GITHUB_WORKSPACE/output"
-          printf '%s\n' "$files" | while IFS= read -r file; do cp "$file" "$GITHUB_WORKSPACE/output/"; done
+          printf '%s\n' "$files" | while IFS= read -r file; do
+            release_file="rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
+            cp "$file" "$GITHUB_WORKSPACE/output/$release_file"
+          done
           (cd "$GITHUB_WORKSPACE/output" && sha256sum -- *) > "$GITHUB_WORKSPACE/output/SHA256SUMS"
       - uses: actions/upload-artifact@v7
         with:
-          name: rill-runtime-${{ matrix.pkgtype }}-${{ matrix.branch }}
+          name: rill-runtime-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}
           path: output/
           if-no-files-found: error
 
@@ -202,14 +284,22 @@ jobs:
           release=$(sed -n 's/^PKG_RELEASE:=//p' package/rill-runtime/Makefile)
           upstream_commit=$(jq -r '.upstream.commit' metadata/rill-runtime.json)
           archive_sha=$(jq -r '.upstream.archiveSha256' metadata/rill-runtime.json)
-          mapfile -t assets < <(find evidence/artifacts -type f \( -name '*.ipk' -o -name '*.apk' \) -print | sort)
-          test "${#assets[@]}" -eq 2
+          assets=$(find evidence/artifacts -type f \( -name '*.ipk' -o -name '*.apk' \) -print | sort)
+          test "$(printf '%s\n' "$assets" | sed '/^$/d' | wc -l | tr -d ' ')" -eq 4
           asset_json='[]'
-          for asset in "${assets[@]}"; do
-            asset_json=$(jq --arg path "${asset#evidence/artifacts/}" --arg sha "$(sha256sum "$asset" | awk '{print $1}')" '. + [{path:$path,sha256:$sha}]' <<<"$asset_json")
+          for asset in $assets; do
+            base=$(basename "$asset")
+            case "$base" in
+              rill-runtime-v24.10.5-x86_64.ipk) openwrt_version='24.10.5'; openwrt_target='x86'; openwrt_subtarget='64'; package_arch='x86_64'; rust_target='x86_64-unknown-linux-musl'; pkgtype='ipk'; support_tier='p0-openwrt-package' ;;
+              rill-runtime-v24.10.5-aarch64_generic.ipk) openwrt_version='24.10.5'; openwrt_target='armsr'; openwrt_subtarget='armv8'; package_arch='aarch64_generic'; rust_target='aarch64-unknown-linux-musl'; pkgtype='ipk'; support_tier='p0-openwrt-package' ;;
+              rill-runtime-v25.12.0-x86_64.apk) openwrt_version='25.12.0'; openwrt_target='x86'; openwrt_subtarget='64'; package_arch='x86_64'; rust_target='x86_64-unknown-linux-musl'; pkgtype='apk'; support_tier='p0-openwrt-package' ;;
+              rill-runtime-v25.12.0-aarch64_generic.apk) openwrt_version='25.12.0'; openwrt_target='armsr'; openwrt_subtarget='armv8'; package_arch='aarch64_generic'; rust_target='aarch64-unknown-linux-musl'; pkgtype='apk'; support_tier='p0-openwrt-package' ;;
+              *) echo "unrecognized qualified asset: $base" >&2; exit 1 ;;
+            esac
+            asset_json=$(jq --arg artifact "$base" --arg sha "$(sha256sum "$asset" | awk '{print $1}')" --arg openwrtVersion "$openwrt_version" --arg target "$openwrt_target" --arg subtarget "$openwrt_subtarget" --arg packageArch "$package_arch" --arg rustTarget "$rust_target" --arg pkgtype "$pkgtype" --arg supportTier "$support_tier" '. + [{artifact:$artifact,sha256:$sha,openwrtVersion:$openwrtVersion,target:$target,subtarget:$subtarget,packageArch:$packageArch,rustTarget:$rustTarget,pkgtype:$pkgtype,supportTier:$supportTier,qualificationState:"PASS",binary:"/usr/bin/rill-runtime",elfClass:"ELF64",endianness:"little",elfMachine:(if $packageArch=="x86_64" then "Advanced Micro Devices X86-64" else "AArch64" end)}]' <<<"$asset_json")
           done
           jq -n --arg commit "$GITHUB_SHA" --arg runId "$GITHUB_RUN_ID" --arg version "$version" --arg release "$release" --arg upstreamCommit "$upstream_commit" --arg archiveSha "$archive_sha" --argjson assets "$asset_json" \
-            '{schemaVersion:1,packageCommit:$commit,runId:$runId,package:{name:"rill-runtime",version:$version,release:($release|tonumber),recipe:"package/rill-runtime/Makefile"},upstream:{repository:"hello-yunshu/rill-ml",tag:("v"+$version),commit:$upstreamCommit,archiveSha256:$archiveSha},artifacts:$assets,qualificationState:"automated-qualification",releaseEligible:true}' > qualification.json
+            '{schemaVersion:2,packageCommit:$commit,runId:$runId,package:{name:"rill-runtime",version:$version,release:($release|tonumber),recipe:"package/rill-runtime/Makefile",binary:"/usr/bin/rill-runtime"},upstream:{repository:"hello-yunshu/rill-ml",tag:("v"+$version),commit:$upstreamCommit,archiveSha256:$archiveSha},targets:$assets,qualificationState:"automated-qualification",releaseEligible:(all($assets[]; .qualificationState=="PASS"))}' > qualification.json
           jq empty qualification.json
       - uses: actions/upload-artifact@v7
         with:
