@@ -151,7 +151,10 @@ jobs:
               apk)
                 test -x /builder/staging_dir/host/bin/apk
                 /builder/staging_dir/host/bin/apk --allow-untrusted adbdump --format json "$file" >/dev/null
-                package_info=$(/builder/staging_dir/host/bin/apk --allow-untrusted info --all "$file") || {
+                apk_root=$(mktemp -d "$RUNNER_TEMP/rill-apk-root.XXXXXX")
+                /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no \
+                  --repositories-file /dev/null add --initdb --no-scripts
+                package_info=$(/builder/staging_dir/host/bin/apk --root "$apk_root" --allow-untrusted info --all "$file") || {
                   printf 'APK package info:\n%s\n' "$package_info" >&2
                   exit 1
                 }
@@ -168,9 +171,6 @@ jobs:
                   exit 1
                 }
                 test "$(basename "$file")" = "rill-runtime_${expected_version}-r${expected_release}_x86_64.apk"
-                apk_root=$(mktemp -d "$RUNNER_TEMP/rill-apk-root.XXXXXX")
-                /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no \
-                  --repositories-file /dev/null add --initdb --no-scripts
                 manifest=$(/builder/staging_dir/host/bin/apk --root "$apk_root" --allow-untrusted manifest "$file")
                 grep -Fx 'usr/bin/rill-runtime' <<<"$manifest"
                 ! grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/' <<<"$manifest"
