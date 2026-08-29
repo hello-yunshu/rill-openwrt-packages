@@ -110,33 +110,58 @@ jobs:
           test -n "$files"
           expected_version=$(sed -n 's/^PKG_VERSION:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")
           expected_release=$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")
+          extract_tar_member_archive() {
+            local archive="$1" destination="$2"
+            mkdir -p "$destination"
+            case "$archive" in
+              *.tar.gz|*.tgz) tar -xzf "$archive" -C "$destination" ;;
+              *.tar.xz|*.txz) tar -xJf "$archive" -C "$destination" ;;
+              *.tar.zst|*.tzst) tar --zstd -xf "$archive" -C "$destination" ;;
+              *.tar.bz2|*.tbz2) tar -xjf "$archive" -C "$destination" ;;
+              *.tar) tar -xf "$archive" -C "$destination" ;;
+              *) tar -xf "$archive" -C "$destination" ;;
+            esac
+          }
           printf '%s\n' "$files" | while IFS= read -r file; do
             case "${file##*.}" in
               ipk)
-                members=$(tar -tf "$file")
-                data=$(printf '%s\n' "$members" | grep -E '^\./data\.tar' | head -n1)
-                control=$(printf '%s\n' "$members" | grep -E '^\./control\.tar' | head -n1)
+                package_dir=$(mktemp -d "$RUNNER_TEMP/rill-ipk.XXXXXX")
+                trap 'rm -rf "$package_dir"' RETURN
+                tar -xf "$file" -C "$package_dir"
+                data=$(find "$package_dir" -maxdepth 1 -type f -name 'data.tar.*' -print -quit)
+                control=$(find "$package_dir" -maxdepth 1 -type f -name 'control.tar.*' -print -quit)
                 test -n "$data"
                 test -n "$control"
-                control_text=$(tar -xOf "$file" "$control" | tar -xOf - ./control)
+                control_dir="$package_dir/control"
+                data_dir="$package_dir/data"
+                extract_tar_member_archive "$control" "$control_dir"
+                extract_tar_member_archive "$data" "$data_dir"
+                control_file=$(find "$control_dir" -type f -name control -print -quit)
+                test -n "$control_file"
+                control_text=$(cat "$control_file")
                 grep -Fx 'Package: rill-runtime' <<<"$control_text"
                 grep -Eq "^Version: ${expected_version}-${expected_release}$" <<<"$control_text"
                 grep -Fx 'Architecture: x86_64' <<<"$control_text"
-                tar -xOf "$file" "$data" | tar -tf - | sed 's#^\./##' | grep -Fx usr/bin/rill-runtime
-                ! tar -xOf "$file" "$data" | tar -tf - | sed 's#^\./##' | grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/'
+                find "$data_dir" -type f -o -type l | sed "s#^$data_dir/##; s#^\./##" | grep -Fx usr/bin/rill-runtime
+                ! find "$data_dir" -type f -o -type l | sed "s#^$data_dir/##; s#^\./##" | grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/'
+                rm -rf "$package_dir"
+                trap - RETURN
                 ;;
               apk)
                 test -x /builder/staging_dir/host/bin/apk
-                mkdir -p "$RUNNER_TEMP/apk-root"
-                /builder/staging_dir/host/bin/apk --root "$RUNNER_TEMP/apk-root" --network=no --repositories-file /dev/null add --initdb --no-scripts
-                pkginfo=$(tar -tf "$file" | grep -E '(^|/)\.PKGINFO$' | head -n1)
-                test -n "$pkginfo"
-                pkginfo_text=$(tar -xOf "$file" "$pkginfo")
-                grep -Fx 'pkgname = rill-runtime' <<<"$pkginfo_text"
-                grep -Fx "pkgver = ${expected_version}-r${expected_release}" <<<"$pkginfo_text"
-                grep -Fx 'arch = x86_64' <<<"$pkginfo_text"
-                /builder/staging_dir/host/bin/apk --root "$RUNNER_TEMP/apk-root" --allow-untrusted manifest "$file" | awk '{print $NF}' | grep -Fx usr/bin/rill-runtime
-                ! /builder/staging_dir/host/bin/apk --root "$RUNNER_TEMP/apk-root" --allow-untrusted manifest "$file" | awk '{print $NF}' | grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/'
+                apk_root=$(mktemp -d "$RUNNER_TEMP/rill-apk-root.XXXXXX")
+                /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no --repositories-file /dev/null add --initdb --no-scripts
+                /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no --repositories-file /dev/null --allow-untrusted add --no-scripts --no-deps "$file"
+                installed="$apk_root/lib/apk/db/installed"
+                test -s "$installed"
+                record=$(awk -v RS='' '$0 ~ /^P:rill-runtime$/m { print; exit }' "$installed")
+                grep -Fx 'P:rill-runtime' <<<"$record"
+                grep -Fx "V:${expected_version}-r${expected_release}" <<<"$record"
+                grep -Fx 'A:x86_64' <<<"$record"
+                manifest=$(/builder/staging_dir/host/bin/apk --root "$apk_root" --allow-untrusted manifest "$file")
+                grep -Fx 'usr/bin/rill-runtime' <<<"$manifest"
+                ! grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/' <<<"$manifest"
+                rm -rf "$apk_root"
                 ;;
             esac
           done
