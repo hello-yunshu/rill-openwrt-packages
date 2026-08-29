@@ -40,7 +40,7 @@ endef
 
 define Package/rill-runtime/install
 	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/rill-runtime $(1)/usr/bin/rill-runtime
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/rill-runtime $(1)/usr/bin/rill-runtime
 endef
 
 $(eval $(call BuildPackage,rill-runtime))
