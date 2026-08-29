@@ -149,19 +149,13 @@ jobs:
                 ;;
               apk)
                 test -x /builder/staging_dir/host/bin/apk
-                apk_root=$(mktemp -d "$RUNNER_TEMP/rill-apk-root.XXXXXX")
-                /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no --repositories-file /dev/null add --initdb --no-scripts
-                /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no --repositories-file /dev/null --allow-untrusted add --no-scripts --no-deps "$file"
-                installed="$apk_root/lib/apk/db/installed"
-                test -s "$installed"
-                record=$(awk -v RS='' '$0 ~ /^P:rill-runtime$/m { print; exit }' "$installed")
-                grep -Fx 'P:rill-runtime' <<<"$record"
-                grep -Fx "V:${expected_version}-r${expected_release}" <<<"$record"
-                grep -Fx 'A:x86_64' <<<"$record"
-                manifest=$(/builder/staging_dir/host/bin/apk --root "$apk_root" --allow-untrusted manifest "$file")
+                package_dump=$(/builder/staging_dir/host/bin/apk --allow-untrusted adbdump "$file")
+                grep -Fx 'P:rill-runtime' <<<"$package_dump"
+                grep -Fx "V:${expected_version}-r${expected_release}" <<<"$package_dump"
+                grep -Fx 'A:x86_64' <<<"$package_dump"
+                manifest=$(/builder/staging_dir/host/bin/apk --allow-untrusted manifest "$file")
                 grep -Fx 'usr/bin/rill-runtime' <<<"$manifest"
                 ! grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/' <<<"$manifest"
-                rm -rf "$apk_root"
                 ;;
             esac
           done
