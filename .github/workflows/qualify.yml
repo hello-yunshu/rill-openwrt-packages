@@ -163,9 +163,9 @@ jobs:
                 /builder/staging_dir/host/bin/apk --root "$apk_root" --arch x86_64 --network=no \
                   --repositories-file /dev/null add --initdb --no-scripts
                 /builder/staging_dir/host/bin/apk --root "$apk_root" --arch x86_64 --network=no \
-                  --repositories-file /dev/null --repository "$apk_index" \
+                  --repositories-file /dev/null \
                   --allow-untrusted --force-non-repository --force-broken-world \
-                  add --no-scripts "rill-runtime=${expected_version}-r${expected_release}"
+                  add --no-scripts "$repo_pkg"
                 installed="$apk_root/lib/apk/db/installed"
                 test -s "$installed"
                 record=$(awk -v RS='' '$0 ~ /^P:rill-runtime$/m { print; exit }' "$installed")
