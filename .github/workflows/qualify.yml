@@ -150,19 +150,24 @@ jobs:
                 ;;
               apk)
                 test -x /builder/staging_dir/host/bin/apk
-                package_dump=$(/builder/staging_dir/host/bin/apk --allow-untrusted adbdump --format json "$file")
-                grep -Eq '"(name|P|package|pkgname)"[[:space:]]*:[[:space:]]*"rill-runtime"' <<<"$package_dump" || {
-                  printf 'APK metadata dump:\n%s\n' "$package_dump" >&2
+                /builder/staging_dir/host/bin/apk --allow-untrusted adbdump --format json "$file" >/dev/null
+                package_info=$(/builder/staging_dir/host/bin/apk --allow-untrusted info --all "$file") || {
+                  printf 'APK package info:\n%s\n' "$package_info" >&2
                   exit 1
                 }
-                grep -Eq "\"(version|V|pkgver)\"[[:space:]]*:[[:space:]]*\"${expected_version}-r${expected_release}\"" <<<"$package_dump" || {
-                  printf 'APK metadata dump:\n%s\n' "$package_dump" >&2
+                grep -Eiq "rill-runtime[-_]${expected_version}-r${expected_release}" <<<"$package_info" || {
+                  printf 'APK package info:\n%s\n' "$package_info" >&2
                   exit 1
                 }
-                grep -Eq '"(arch|A|architecture|pkgarch)"[[:space:]]*:[[:space:]]*"x86_64"' <<<"$package_dump" || {
-                  printf 'APK metadata dump:\n%s\n' "$package_dump" >&2
+                grep -Eiq "^version:[[:space:]]*${expected_version}-r${expected_release}$" <<<"$package_info" || {
+                  printf 'APK package info:\n%s\n' "$package_info" >&2
                   exit 1
                 }
+                grep -Eiq '^arch(itecture)?:[[:space:]]*x86_64$' <<<"$package_info" || {
+                  printf 'APK package info:\n%s\n' "$package_info" >&2
+                  exit 1
+                }
+                test "$(basename "$file")" = "rill-runtime_${expected_version}-r${expected_release}_x86_64.apk"
                 apk_root=$(mktemp -d "$RUNNER_TEMP/rill-apk-root.XXXXXX")
                 /builder/staging_dir/host/bin/apk --root "$apk_root" --network=no \
                   --repositories-file /dev/null add --initdb --no-scripts
