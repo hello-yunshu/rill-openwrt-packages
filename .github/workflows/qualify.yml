@@ -81,7 +81,26 @@ jobs:
           rustc --version
           [[ "$(rustc --version)" == 'rustc 1.94.0 '* ]]
           unset CI
-          make -j4 package/rill-runtime/compile V=sc
+          target=package/rill-runtime/compile
+          jobs="$(($(nproc)+1))"
+          if make -j"$jobs" "$target"; then
+            exit 0
+          else
+            fast_rc=$?
+          fi
+          echo "::error::Fast parallel OpenWrt build failed: $target"
+          echo "::group::OpenWrt config at fast-build failure"
+          if [ -f .config ]; then cat .config; fi
+          echo "::endgroup::"
+          echo "::group::Serial verbose diagnostic: $target"
+          if make -j1 "$target" V=s; then
+            diagnostic_rc=0
+          else
+            diagnostic_rc=$?
+          fi
+          echo "Serial diagnostic exit code: $diagnostic_rc"
+          echo "::endgroup::"
+          exit "$fast_rc"
       - name: Inspect exact package payload
         shell: bash
         run: |
