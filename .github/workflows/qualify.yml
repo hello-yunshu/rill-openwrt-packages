@@ -240,7 +240,7 @@ jobs:
                 grep -Eq '^[[:space:]]+- name: rill-runtime$' <<<"$paths_dump"
                 ! grep -Eq '^[[:space:]]+- name: rill-pack($|/)' <<<"$paths_dump"
                 extract_dir=$(mktemp -d "$RUNNER_TEMP/rill-apk.XXXXXX")
-                "$SDKDIR/staging_dir/host/bin/apk" extract --root "$extract_dir" "$apk_file"
+                "$SDKDIR/staging_dir/host/bin/apk" extract --allow-untrusted --root "$extract_dir" "$apk_file"
                 readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F 'Class:                             ELF64'
                 readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F "Data:                              2's complement, little endian"
                 readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F 'Machine:                           ${{ matrix.elf_machine }}'
