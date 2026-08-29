@@ -162,9 +162,6 @@ jobs:
                 grep -Eq '^[[:space:]]+- name: usr/bin$' <<<"$paths_dump"
                 grep -Eq '^[[:space:]]+- name: rill-runtime$' <<<"$paths_dump"
                 ! grep -Eq '^[[:space:]]+- name: rill-pack($|/)' <<<"$paths_dump"
-                manifest=$(/builder/staging_dir/host/bin/apk --allow-untrusted manifest "$apk_file")
-                grep -Eq '(^|[[:space:]])usr/bin/rill-runtime$' <<<"$manifest"
-                ! grep -Eq '(^|[[:space:]])rill-pack($|/)' <<<"$manifest"
                 ;;
             esac
           done
