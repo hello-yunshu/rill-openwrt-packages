@@ -3,11 +3,20 @@ name: OpenWrt package qualification
 on:
   push:
     branches: [main]
+    paths:
+      - 'package/**'
+      - 'scripts/**'
+      - 'metadata/**'
+      - '.github/workflows/qualify.yml'
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: rill-openwrt-qualification-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   upstream-version-sync:
@@ -38,16 +47,17 @@ jobs:
       options: --user root
     steps:
       - uses: actions/checkout@v7
-      - name: Cache OpenWrt Rust toolchain and Cargo registry
+      - name: Cache OpenWrt downloads, Rust toolchain, Cargo and build output
         uses: actions/cache@v6
         with:
           path: |
-            /builder/dl/cargo
+            /builder/dl
             /builder/rustup
             /builder/cargo
-          key: rill-openwrt-rust-${{ runner.os }}-${{ matrix.branch }}-${{ hashFiles('package/rill-runtime/Makefile', 'scripts/prepare_rust_toolchain.sh') }}
+            /builder/build_dir/target-*/rill-ml-*/target
+          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ hashFiles('package/rill-runtime/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
           restore-keys: |
-            rill-openwrt-rust-${{ runner.os }}-${{ matrix.branch }}-
+            rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-
       - name: Prepare SDK and build package
         shell: bash
         run: |
@@ -55,23 +65,23 @@ jobs:
           cd /builder
           ./scripts/feeds update base packages
           ./scripts/feeds install rust
-          for rust_makefile in feeds/packages/lang/rust/Makefile feeds/packages/lang/rust/rust-host-build.mk; do
-            if [ -f "$rust_makefile" ]; then
-              sed -i 's/--set=llvm.download-ci-llvm=true/--set=llvm.download-ci-llvm=false/g' "$rust_makefile"
-            fi
-          done
-          if grep -R -n -- '--set=llvm.download-ci-llvm=true' feeds/packages/lang/rust; then
-            echo 'Rust feed still enables CI LLVM downloads' >&2
-            exit 1
-          fi
-          RUST_STAGING_DIR=/builder/staging_dir/host \
-            "$GITHUB_WORKSPACE/scripts/prepare_rust_toolchain.sh"
           mkdir -p package/rill-runtime
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime/." package/rill-runtime/
           echo 'CONFIG_PACKAGE_rill-runtime=y' >> .config
           make defconfig
+          staging_dir=$(make -s val.STAGING_DIR)
+          test -n "$staging_dir"
+          rust_staging_dir="$staging_dir/host"
+          RUST_STAGING_DIR="$rust_staging_dir" \
+            "$GITHUB_WORKSPACE/scripts/prepare_rust_toolchain.sh"
+          export PATH="$rust_staging_dir/bin:$PATH"
+          export RUSTC="$rust_staging_dir/bin/rustc"
+          test "$(command -v cargo)" = "$rust_staging_dir/bin/cargo"
+          test "$(command -v rustc)" = "$rust_staging_dir/bin/rustc"
+          rustc --version
+          [[ "$(rustc --version)" == 'rustc 1.94.0 '* ]]
           unset CI
-          make package/rill-runtime/compile V=sc
+          make -j4 package/rill-runtime/compile V=sc
       - name: Inspect exact package payload
         shell: bash
         run: |
