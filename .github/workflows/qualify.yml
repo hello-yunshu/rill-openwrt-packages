@@ -154,6 +154,8 @@ jobs:
                 test -f "$apk_file"
                 apk_root=$(mktemp -d "$RUNNER_TEMP/rill-apk-root.XXXXXX")
                 repo_dir=$(mktemp -d "$RUNNER_TEMP/rill-apk-repo.XXXXXX")
+                mkdir -p "$apk_root/etc/apk"
+                printf '%s\n' x86_64 > "$apk_root/etc/apk/arch"
                 repo_pkg="$repo_dir/rill-runtime-${expected_version}-r${expected_release}.apk"
                 cp "$apk_file" "$repo_pkg"
                 apk_index="$repo_dir/Packages.adb"
