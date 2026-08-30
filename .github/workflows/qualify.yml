@@ -475,7 +475,7 @@ jobs:
           mkdir -p "$work/root/etc/apk/keys"
           cp "$work/apk.pub" "$work/root/etc/apk/keys/rill-ci.pub"
           printf 'file://%s\n' "$work/packages.adb" > "$work/root/repositories"
-          tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update
+          tools/bin/apk --root "$work/root" --initdb --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update
           rm "$work/root/etc/apk/keys/rill-ci.pub"
           if tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
           cp "$work/apk.pub" "$work/wrong.pub"
