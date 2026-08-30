@@ -475,23 +475,23 @@ jobs:
           mkdir -p "$work/root/etc/apk/keys"
           cp "$work/apk.pub" "$work/root/etc/apk/keys/rill-ci.pub"
           printf 'file://%s\n' "$work/packages.adb" > "$work/root/repositories"
-          tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add --initdb rill-runtime
+          tools/bin/apk --root "$work/root" --usermode --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add --initdb rill-runtime
           test -x "$work/root/usr/bin/rill-runtime"
-          tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache del rill-runtime
+          tools/bin/apk --root "$work/root" --usermode --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache del rill-runtime
           test ! -e "$work/root/usr/bin/rill-runtime"
-          tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update
+          tools/bin/apk --root "$work/root" --usermode --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update
           rm "$work/root/etc/apk/keys/rill-ci.pub"
-          if tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
+          if tools/bin/apk --root "$work/root" --usermode --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
           cp "$work/apk.pub" "$work/wrong.pub"
           openssl ecparam -name prime256v1 -genkey -noout -out "$work/wrong.sec"
           openssl ec -in "$work/wrong.sec" -pubout -out "$work/wrong.pub" 2>/dev/null
           cp "$work/wrong.pub" "$work/root/etc/apk/keys/wrong.pub"
-          if tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
+          if tools/bin/apk --root "$work/root" --usermode --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
           cp "$work/apk.pub" "$work/root/etc/apk/keys/rill-ci.pub"
           cp "$work/packages.adb" "$work/tampered.adb"
           printf 'tamper' >> "$work/tampered.adb"
           printf 'file://%s\n' "$work/tampered.adb" > "$work/root/repositories"
-          if tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
+          if tools/bin/apk --root "$work/root" --usermode --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
       - name: Exercise real package-manager repository transactions
         shell: bash
         run: |
