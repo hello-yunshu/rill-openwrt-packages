@@ -350,22 +350,22 @@ jobs:
           fi
           cp -a "$SDKDIR/staging_dir/host/lib/." "$GITHUB_WORKSPACE/signing-tools/lib/"
           chmod +x "$GITHUB_WORKSPACE/signing-tools/lib/ld-linux-x86-64.so.2"
+          tar -czf "$GITHUB_WORKSPACE/signing-tools-${{ matrix.pkgtype }}.tar.gz" -C signing-tools .
       - uses: actions/upload-artifact@v7
         with:
-          name: rill-runtime-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}
+          name: rill-runtime-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}
           path: output/
           if-no-files-found: error
       - uses: actions/upload-artifact@v7
         with:
-          name: rill-runtime-feed-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}
+          name: rill-runtime-feed-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}
           path: feed/
           if-no-files-found: error
       - uses: actions/upload-artifact@v7
         if: ${{ matrix.package_arch == 'x86_64' }}
         with:
-          name: rill-openwrt-signing-tools-${{ matrix.pkgtype }}
-          path: signing-tools/
-          include-hidden-files: true
+          name: rill-openwrt-signing-tools-${{ matrix.pkgtype }}-${{ github.run_id }}
+          path: signing-tools-${{ matrix.pkgtype }}.tar.gz
           if-no-files-found: error
 
   qualification-evidence:
@@ -383,12 +383,12 @@ jobs:
           echo "$RESULTS" | jq -e 'to_entries | all(.value.result == "success")'
       - uses: actions/download-artifact@v8
         with:
-          pattern: rill-runtime-ipk-*
+          pattern: rill-runtime-ipk-*-${{ github.run_id }}
           path: evidence/artifacts
           merge-multiple: true
       - uses: actions/download-artifact@v8
         with:
-          pattern: rill-runtime-apk-*
+          pattern: rill-runtime-apk-*-${{ github.run_id }}
           path: evidence/artifacts
           merge-multiple: true
       - name: Generate immutable provenance evidence
@@ -422,7 +422,7 @@ jobs:
           jq empty qualification.json
       - uses: actions/upload-artifact@v7
         with:
-          name: qualification-evidence
+          name: qualification-evidence-${{ github.run_id }}
           path: qualification.json
           if-no-files-found: error
 
@@ -434,19 +434,27 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: rill-openwrt-signing-tools-ipk
-          path: tools
+          name: rill-openwrt-signing-tools-ipk-${{ github.run_id }}
+          path: tools-archives
       - uses: actions/download-artifact@v8
         with:
-          name: rill-openwrt-signing-tools-apk
-          path: tools
+          name: rill-openwrt-signing-tools-apk-${{ github.run_id }}
+          path: tools-archives
+      - name: Extract official signing tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tools
+          for archive in tools-archives/*.tar.gz; do
+            tar -xzf "$archive" -C tools
+          done
       - uses: actions/download-artifact@v8
         with:
-          name: rill-runtime-feed-apk-v25.12.5-x86_64
+          name: rill-runtime-feed-apk-v25.12.5-x86_64-${{ github.run_id }}
           path: apk-feed
       - uses: actions/download-artifact@v8
         with:
-          name: rill-runtime-feed-ipk-v24.10.8-x86_64
+          name: rill-runtime-feed-ipk-v24.10.8-x86_64-${{ github.run_id }}
           path: ipk-feed
       - name: Verify ephemeral signatures fail closed
         shell: bash
