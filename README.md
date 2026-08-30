@@ -73,13 +73,14 @@ x86_64、aarch64_generic 与 aarch64_cortex-a53 的包级 qualification，不能
 
 IPK 示例：
 
-    opkg install ./rill-runtime_1.5.6-1_x86_64.ipk
+    opkg install rill-runtime
 
 APK 示例：
 
-    apk add --allow-untrusted ./rill-runtime-1.5.6-r1.apk
+    apk add rill-runtime
 
-安装后可检查：
+生成的 IPK 文件名形如 `rill-runtime_1.5.6-1_x86_64.ipk`；但生产安装应通过
+已签名 feed 的包名解析，而不是绕过索引安装本地文件。安装后可检查：
 
     /usr/bin/rill-runtime --version
 
@@ -153,8 +154,28 @@ Rust target 编译结果，并通过 OpenWrt jobserver 以 <code>-j4</code> 运�
 
 OpenWrt 24.10 IPK 可将对应目录加入 customfeeds.conf 后运行 opkg update；
 OpenWrt 25.12 APK 可将对应目录加入 APK repositories 后运行 apk update。
-当前索引明确标记为 unsigned，manifest.json 中的 signing 状态不会伪造可信签名；
-生产环境应在发布并分发受信任 repository key 后再启用强制签名校验。
+Feed 采用 OpenWrt 原生签名格式：24.10 的 `Packages.sig` 使用 `usign`，25.12
+的 `packages.adb` 使用 apk-tools v3 的 EC repository key。当前代码、负向测试和
+fail-closed gate 已就绪；生产 key provisioning 仍需仓库所有者完成后，Pages 才会
+发布 `channel=production` feed。没有 key 时只生成 development 验证结果，不会把
+unsigned feed 部署到生产 Pages。
+
+生产使用时先人工核对 Pages 根目录 `keys/` 下对应公钥的 fingerprint，再配置：
+
+    # OpenWrt 24.10 / IPK
+    echo 'src/gz rill https://hello-yunshu.github.io/rill-openwrt-packages/feed/24.10.8/x86/64/x86_64/' >> /etc/opkg/customfeeds.conf
+    opkg update
+    opkg install rill-runtime
+
+    # OpenWrt 25.12 / APK
+    echo 'https://hello-yunshu.github.io/rill-openwrt-packages/feed/25.12.5/x86/64/x86_64/packages.adb' > /etc/apk/repositories.d/rill.list
+    apk update
+    apk add rill-runtime
+
+24.10 的公钥放入 `/etc/opkg/keys/`，25.12 的公钥放入 `/etc/apk/keys/`；缺 key、错误
+key、篡改 index 或篡改 package 都必须失败。完整 feed provenance 位于 Pages 的
+`manifest.json`、`qualification.json` 和 `SHA256SUMS`，并绑定同一个 qualification
+run、包 commit、上游 Stable 和 Release identity。
 
 Feed 由同一 qualification run 的包构建，部署前执行目录、索引和哈希校验；
 只包含当前 6 个已验证 target，不构成对 package 更广泛 OpenWrt/Rust 架构能力的收窄。
@@ -167,7 +188,10 @@ Feed 由同一 qualification run 的包构建，部署前执行目录、索引�
     scripts/update_rill_version.py   Stable version update helper
     scripts/verify_qualification.py consumer qualification evidence verifier
     tests/test_upstream_guard.py  Stable provenance mutation tests
-    scripts/verify_feed.py         feed layout and index verifier
+    scripts/verify_feed.py         feed layout, semantic index and signature verifier
+    scripts/build_feed_manifest.py durable feed provenance generator
+    scripts/sign_feed.py            exact qualified-byte signing helper
+    keys/README.md                  key lifecycle and provisioning contract
     .github/workflows/qualify.yml    IPK/APK qualification and evidence
     .github/workflows/release.yml    exact-run Release promotion
     .github/workflows/feed.yml       GitHub Pages feed publication
@@ -183,6 +207,7 @@ Feed 由同一 qualification run 的包构建，部署前执行目录、索引�
     actionlint .github/workflows/sync-rill-version.yml
     bash -n scripts/*.sh
     python3 -m py_compile scripts/*.py
+    python3 -m unittest discover -s tests -v
 
 涉及包内容、版本来源或 qualification 的修改，应在 PR 描述中说明：
 
