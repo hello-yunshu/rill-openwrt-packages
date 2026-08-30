@@ -33,21 +33,21 @@ jobs:
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
-          pattern: rill-runtime-feed-*
+          pattern: rill-runtime-feed-*-${{ github.event.workflow_run.id }}
           path: feed-artifacts
           merge-multiple: true
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
-          name: qualification-evidence
+          name: qualification-evidence-${{ github.event.workflow_run.id }}
           path: evidence
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
-          pattern: rill-openwrt-signing-tools-*
-          path: tools
+          pattern: rill-openwrt-signing-tools-*-${{ github.event.workflow_run.id }}
+          path: tools-archives
           merge-multiple: true
       - name: Assemble exact package bytes
         shell: bash
@@ -57,6 +57,10 @@ jobs:
           mkdir -p site/feed
           cp -a feed-artifacts/. site/feed/
           test -s evidence/qualification.json
+          mkdir -p tools
+          for archive in tools-archives/*.tar.gz; do
+            tar -xzf "$archive" -C tools
+          done
           test -x tools/bin/usign
           test -x tools/bin/apk
           test -f tools/bin/.usign.bin
