@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "package": "rill-runtime",
+  "buildCapability": {
+    "status": "supported-by-openwrt-rust-mapping",
+    "architectureFamilies": [
+      "aarch64",
+      "arm",
+      "i386",
+      "loongarch64",
+      "mips",
+      "mips64",
+      "mips64el",
+      "mipsel",
+      "powerpc",
+      "powerpc64",
+      "riscv64",
+      "x86_64"
+    ],
+    "defaultFeatures": true,
+    "sourceOfMapping": "OpenWrt feeds/packages lang/rust/rust-values.mk"
+  },
+  "automatedQualification": {
+    "status": "pass",
+    "targets": [
+      "24.10.8/x86/64",
+      "24.10.8/armsr/armv8",
+      "24.10.8/mediatek/filogic",
+      "25.12.5/x86/64",
+      "25.12.5/armsr/armv8",
+      "25.12.5/mediatek/filogic"
+    ]
+  },
+  "deviceQualification": {
+    "status": "pending",
+    "targets": []
+  }
+}

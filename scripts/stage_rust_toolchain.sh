@@ -22,5 +22,4 @@ write_wrapper() {
 
 write_wrapper "$RUST_STAGING_DIR/bin/rustc" "$rustc_path"
 write_wrapper "$RUST_STAGING_DIR/bin/cargo" "$cargo_path"
-
 echo "staged Rust toolchain: $rustc_version"

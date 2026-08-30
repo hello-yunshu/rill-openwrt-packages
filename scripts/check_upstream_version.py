@@ -86,16 +86,80 @@ def package_fields() -> tuple[str, str, str]:
     return version.group(1), release.group(1), digest.group(1)
 
 
+def metadata_fields() -> tuple[str, str, str, str]:
+    metadata = json.loads((ROOT / "metadata/rill-runtime.json").read_text(encoding="utf-8"))
+    upstream = metadata.get("upstream", {})
+    return (
+        str(upstream.get("version", "")),
+        str(upstream.get("tag", "")),
+        str(upstream.get("commit", "")),
+        str(upstream.get("archiveSha256", "")),
+    )
+
+
+def assess_provenance(
+    *,
+    upstream_version: str,
+    upstream_tag: str,
+    upstream_commit: str,
+    upstream_hash: str,
+    package_version: str,
+    package_hash: str,
+    metadata_version: str,
+    metadata_tag: str,
+    metadata_commit: str,
+    metadata_hash: str,
+) -> dict[str, bool]:
+    same_version = package_version == upstream_version
+    mutated_stable = same_version and any(
+        (
+            package_hash != upstream_hash,
+            metadata_version != upstream_version,
+            metadata_tag != upstream_tag,
+            metadata_commit != upstream_commit,
+            metadata_hash != upstream_hash,
+        )
+    )
+    package_tuple = stable_version(package_version)
+    upstream_tuple = stable_version(upstream_version)
+    return {
+        "sameVersion": same_version,
+        "mutatedStable": mutated_stable,
+        "provenanceInSync": metadata_version == upstream_version
+        and metadata_tag == upstream_tag
+        and metadata_commit == upstream_commit
+        and metadata_hash == upstream_hash,
+        "rollback": package_tuple is not None
+        and upstream_tuple is not None
+        and package_tuple > upstream_tuple,
+    }
+
+
 def describe(release: dict[str, object]) -> dict[str, object]:
     tag = str(release["tag_name"])
     version = stable_version(tag)
     assert version is not None
     package_version, package_release, package_hash = package_fields()
+    metadata_version, metadata_tag, metadata_commit, metadata_hash = metadata_fields()
     upstream_hash = archive_sha256(tag)
+    upstream_version = ".".join(str(part) for part in version)
+    upstream_commit = resolve_tag_commit(tag)
+    assessment = assess_provenance(
+        upstream_version=upstream_version,
+        upstream_tag=tag,
+        upstream_commit=upstream_commit,
+        upstream_hash=upstream_hash,
+        package_version=package_version,
+        package_hash=package_hash,
+        metadata_version=metadata_version,
+        metadata_tag=metadata_tag,
+        metadata_commit=metadata_commit,
+        metadata_hash=metadata_hash,
+    )
     return {
-        "upstreamStable": ".".join(str(part) for part in version),
+        "upstreamStable": upstream_version,
         "upstreamTag": tag,
-        "upstreamCommit": resolve_tag_commit(tag),
+        "upstreamCommit": upstream_commit,
         "releaseUrl": release["html_url"],
         "publishedAt": release["published_at"],
         "upstreamArchiveSha256": upstream_hash,
@@ -103,7 +167,10 @@ def describe(release: dict[str, object]) -> dict[str, object]:
         "packageRelease": package_release,
         "packageHash": package_hash,
         "hashInSync": package_hash == upstream_hash,
-        "inSync": package_version == ".".join(str(part) for part in version) and package_hash == upstream_hash,
+        **assessment,
+        "inSync": package_version == upstream_version
+        and package_hash == upstream_hash
+        and assessment["provenanceInSync"],
     }
 
 
@@ -116,6 +183,16 @@ def main() -> int:
         report = describe(latest_release())
     except Exception as error:  # noqa: BLE001 - CLI must expose a useful failure
         print(f"ERROR: {error}", file=sys.stderr)
+        return 2
+    if report["mutatedStable"]:
+        print(
+            "MUTATED_STABLE: the published Stable SemVer has different tag commit "
+            "or archive provenance; publish a new upstream version instead of rewriting the package",
+            file=sys.stderr,
+        )
+        return 2
+    if report["rollback"]:
+        print("ROLLBACK: package version is newer than the latest Stable release", file=sys.stderr)
         return 2
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))

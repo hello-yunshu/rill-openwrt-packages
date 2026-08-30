@@ -24,6 +24,7 @@
 | 当前上游 commit | <code>b990cd7043d313b0ff29c9693f091a94a5bdaf47</code> |
 | 包许可证 | MIT |
 | 包维护者 | Rill OpenWrt Packages maintainers |
+| 分发 Release | [rill-runtime releases](https://github.com/hello-yunshu/rill-openwrt-packages/releases) |
 
 它只分发通用 Runtime 可执行文件，不把 OpenWrt 产品逻辑塞进 Rill：
 
@@ -63,8 +64,10 @@ x86_64、aarch64_generic 与 aarch64_cortex-a53 的包级 qualification，不能
     make defconfig
     make package/rill-runtime/compile V=s
 
-生成的 IPK 或 APK 位于 SDK 的 <code>bin/</code> 目录下。实际生产使用时，应以本仓库
-Actions 产生的、带有 immutable provenance 的 qualification artifact 为准。
+生成的 IPK 或 APK 位于 SDK 的 <code>bin/</code> 目录下。Release 发布后，实际生产使用时
+应以本仓库的 immutable Release 及其中同一 qualification run 的
+<code>qualification.json</code> 和 <code>SHA256SUMS</code> 为准；Actions artifact
+不是长期软件源。
 
 ### 安装已构建的软件包
 
@@ -100,8 +103,15 @@ APK 示例：
     python3 scripts/check_upstream_version.py --json
 
 版本同步工作流支持定时运行、<code>repository_dispatch</code> 和手动触发。发现新 Stable
-版本时，它会生成只修改包版本与来源元数据的自动 PR；合并前仍必须通过完整的
-OpenWrt qualification。
+版本时，它会生成只修改包版本与来源元数据的自动 PR；同一 Stable SemVer 如果 tag
+commit 或 archive hash 发生变化，检查和更新脚本会以 <code>MUTATED_STABLE</code>
+失败，禁止静默改写来源身份。
+
+架构能力与证据分层记录在 <code>metadata/architecture-capability.json</code>：package
+保留 OpenWrt/Rust helper 的 all-arch build capability，当前 Actions 矩阵只是已验证
+targets，设备运行证据仍单独记录。下游可使用 <code>scripts/verify_qualification.py</code> 校验 schema v1/v2 evidence，按
+package commit、upstream identity、target identity、qualification state 和 release
+eligibility 验证，不依赖固定 artifact 数量。
 
 ## Qualification 做什么
 
@@ -109,12 +119,13 @@ OpenWrt qualification。
 
 1. 校验上游最新公开 Stable tag；
 2. 使用官方 OpenWrt SDK 构建 IPK 和 APK；
-3. 在目标 SDK 的 host staging 中接管 Rust 工具链，使用 Rust <code>1.94.0</code>
-   构建完整的默认 Runtime 能力，不编译 SDK 自带的旧 <code>rust/host</code>；
+3. 通过显式、可缓存且版本固定的 qualification toolchain contract（包括
+   rustup-init SHA-256）准备 Rust host 工具链，不改变默认 Runtime feature；
 4. 保留 OpenWrt <code>rust-package.mk</code> 的交叉编译、链接器和 staging 规则；
 5. 检查包元数据、架构、版本和最终 payload；
 6. 确认 payload 包含 <code>/usr/bin/rill-runtime</code>，且不包含 <code>rill-pack</code>；
-7. 上传带包 SHA-256、上游 commit、来源 archive hash 和 run ID 的证据。
+7. 上传带包 SHA-256、上游 commit、来源 archive hash 和 run ID 的证据；成功的
+   qualification run 随后由独立 promotion workflow 原样提升为 package Release。
 
 工作流会按 OpenWrt SDK 分支缓存可复用的下载内容、Cargo/Rust 输入以及安全范围内的
 Rust target 编译结果，并通过 OpenWrt jobserver 以 <code>-j4</code> 运行包构建。cache
@@ -140,9 +151,10 @@ Rust target 编译结果，并通过 OpenWrt jobserver 以 <code>-j4</code> 运�
     metadata/rill-runtime.json       immutable upstream/package provenance
     scripts/check_upstream_version.py Stable drift guard
     scripts/update_rill_version.py   Stable version update helper
-    scripts/prepare_rust_toolchain.sh qualification toolchain preparation
-    scripts/stage_rust_toolchain.sh  runtime-safe compiler staging wrappers
+    scripts/verify_qualification.py consumer qualification evidence verifier
+    tests/test_upstream_guard.py  Stable provenance mutation tests
     .github/workflows/qualify.yml    IPK/APK qualification and evidence
+    .github/workflows/release.yml    exact-run Release promotion
     .github/workflows/sync-rill-version.yml
                                       scheduled/manual Stable drift PR
 
