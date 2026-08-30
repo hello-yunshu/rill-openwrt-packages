@@ -326,7 +326,7 @@ jobs:
             --arg pkgtype "${{ matrix.pkgtype }}" \
             --arg signing "unsigned" \
             --arg package "rill-runtime" \
-            --arg packageVersion "$(sed -n 's/^PKG_VERSION:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")-${{ matrix.pkgtype == 'ipk' && '1' || 'r1' }}" \
+            --arg packageVersion "$(sed -n 's/^PKG_VERSION:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")-r$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")" \
             --arg packageRelease "$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")" \
             '{openwrtVersion:$version,target:$target,subtarget:$subtarget,packageArch:$packageArch,pkgtype:$pkgtype,package:$package,packageVersion:$packageVersion,packageRelease:($packageRelease|tonumber),signing:$signing}' \
             > "$feed_dir/feed-metadata.json"
