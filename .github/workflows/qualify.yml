@@ -365,6 +365,7 @@ jobs:
         with:
           name: rill-openwrt-signing-tools-${{ matrix.pkgtype }}
           path: signing-tools/
+          include-hidden-files: true
           if-no-files-found: error
 
   qualification-evidence:
