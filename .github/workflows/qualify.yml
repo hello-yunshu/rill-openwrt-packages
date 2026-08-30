@@ -38,8 +38,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - branch: v24.10.5
-            release_version: 24.10.5
+          - branch: v24.10.8
+            release_version: 24.10.8
             pkgtype: ipk
             openwrt_target: x86
             openwrt_subtarget: 64
@@ -48,8 +48,8 @@ jobs:
             rust_target: x86_64-unknown-linux-musl
             elf_machine: 'Advanced Micro Devices X86-64'
             support_tier: p0-openwrt-package
-          - branch: v24.10.5
-            release_version: 24.10.5
+          - branch: v24.10.8
+            release_version: 24.10.8
             pkgtype: ipk
             openwrt_target: armsr
             openwrt_subtarget: armv8
@@ -58,8 +58,18 @@ jobs:
             rust_target: aarch64-unknown-linux-musl
             elf_machine: AArch64
             support_tier: p0-openwrt-package
-          - branch: v25.12.0
-            release_version: 25.12.0
+          - branch: v24.10.8
+            release_version: 24.10.8
+            pkgtype: ipk
+            openwrt_target: mediatek
+            openwrt_subtarget: filogic
+            sdk_prefix: mediatek-filogic
+            package_arch: aarch64_cortex-a53
+            rust_target: aarch64-unknown-linux-musl
+            elf_machine: AArch64
+            support_tier: p0-openwrt-package
+          - branch: v25.12.5
+            release_version: 25.12.5
             pkgtype: apk
             openwrt_target: x86
             openwrt_subtarget: 64
@@ -68,13 +78,23 @@ jobs:
             rust_target: x86_64-unknown-linux-musl
             elf_machine: 'Advanced Micro Devices X86-64'
             support_tier: p0-openwrt-package
-          - branch: v25.12.0
-            release_version: 25.12.0
+          - branch: v25.12.5
+            release_version: 25.12.5
             pkgtype: apk
             openwrt_target: armsr
             openwrt_subtarget: armv8
             sdk_prefix: armsr-armv8
             package_arch: aarch64_generic
+            rust_target: aarch64-unknown-linux-musl
+            elf_machine: AArch64
+            support_tier: p0-openwrt-package
+          - branch: v25.12.5
+            release_version: 25.12.5
+            pkgtype: apk
+            openwrt_target: mediatek
+            openwrt_subtarget: filogic
+            sdk_prefix: mediatek-filogic
+            package_arch: aarch64_cortex-a53
             rust_target: aarch64-unknown-linux-musl
             elf_machine: AArch64
             support_tier: p0-openwrt-package
@@ -289,15 +309,17 @@ jobs:
           upstream_commit=$(jq -r '.upstream.commit' metadata/rill-runtime.json)
           archive_sha=$(jq -r '.upstream.archiveSha256' metadata/rill-runtime.json)
           assets=$(find evidence/artifacts -type f \( -name '*.ipk' -o -name '*.apk' \) -print | sort)
-          test "$(printf '%s\n' "$assets" | sed '/^$/d' | wc -l | tr -d ' ')" -eq 4
+          test "$(printf '%s\n' "$assets" | sed '/^$/d' | wc -l | tr -d ' ')" -eq 6
           asset_json='[]'
           for asset in $assets; do
             base=$(basename "$asset")
             case "$base" in
-              rill-runtime-v24.10.5-x86_64.ipk) openwrt_version='24.10.5'; openwrt_target='x86'; openwrt_subtarget='64'; package_arch='x86_64'; rust_target='x86_64-unknown-linux-musl'; pkgtype='ipk'; support_tier='p0-openwrt-package' ;;
-              rill-runtime-v24.10.5-aarch64_generic.ipk) openwrt_version='24.10.5'; openwrt_target='armsr'; openwrt_subtarget='armv8'; package_arch='aarch64_generic'; rust_target='aarch64-unknown-linux-musl'; pkgtype='ipk'; support_tier='p0-openwrt-package' ;;
-              rill-runtime-v25.12.0-x86_64.apk) openwrt_version='25.12.0'; openwrt_target='x86'; openwrt_subtarget='64'; package_arch='x86_64'; rust_target='x86_64-unknown-linux-musl'; pkgtype='apk'; support_tier='p0-openwrt-package' ;;
-              rill-runtime-v25.12.0-aarch64_generic.apk) openwrt_version='25.12.0'; openwrt_target='armsr'; openwrt_subtarget='armv8'; package_arch='aarch64_generic'; rust_target='aarch64-unknown-linux-musl'; pkgtype='apk'; support_tier='p0-openwrt-package' ;;
+              rill-runtime-v24.10.8-x86_64.ipk) openwrt_version='24.10.8'; openwrt_target='x86'; openwrt_subtarget='64'; package_arch='x86_64'; rust_target='x86_64-unknown-linux-musl'; pkgtype='ipk'; support_tier='p0-openwrt-package' ;;
+              rill-runtime-v24.10.8-aarch64_generic.ipk) openwrt_version='24.10.8'; openwrt_target='armsr'; openwrt_subtarget='armv8'; package_arch='aarch64_generic'; rust_target='aarch64-unknown-linux-musl'; pkgtype='ipk'; support_tier='p0-openwrt-package' ;;
+              rill-runtime-v24.10.8-aarch64_cortex-a53.ipk) openwrt_version='24.10.8'; openwrt_target='mediatek'; openwrt_subtarget='filogic'; package_arch='aarch64_cortex-a53'; rust_target='aarch64-unknown-linux-musl'; pkgtype='ipk'; support_tier='p0-openwrt-package' ;;
+              rill-runtime-v25.12.5-x86_64.apk) openwrt_version='25.12.5'; openwrt_target='x86'; openwrt_subtarget='64'; package_arch='x86_64'; rust_target='x86_64-unknown-linux-musl'; pkgtype='apk'; support_tier='p0-openwrt-package' ;;
+              rill-runtime-v25.12.5-aarch64_generic.apk) openwrt_version='25.12.5'; openwrt_target='armsr'; openwrt_subtarget='armv8'; package_arch='aarch64_generic'; rust_target='aarch64-unknown-linux-musl'; pkgtype='apk'; support_tier='p0-openwrt-package' ;;
+              rill-runtime-v25.12.5-aarch64_cortex-a53.apk) openwrt_version='25.12.5'; openwrt_target='mediatek'; openwrt_subtarget='filogic'; package_arch='aarch64_cortex-a53'; rust_target='aarch64-unknown-linux-musl'; pkgtype='apk'; support_tier='p0-openwrt-package' ;;
               *) echo "unrecognized qualified asset: $base" >&2; exit 1 ;;
             esac
             asset_json=$(jq --arg artifact "$base" --arg sha "$(sha256sum "$asset" | awk '{print $1}')" --arg openwrtVersion "$openwrt_version" --arg target "$openwrt_target" --arg subtarget "$openwrt_subtarget" --arg packageArch "$package_arch" --arg rustTarget "$rust_target" --arg pkgtype "$pkgtype" --arg supportTier "$support_tier" '. + [{artifact:$artifact,sha256:$sha,openwrtVersion:$openwrtVersion,target:$target,subtarget:$subtarget,packageArch:$packageArch,rustTarget:$rustTarget,pkgtype:$pkgtype,supportTier:$supportTier,qualificationState:"PASS",binary:"/usr/bin/rill-runtime",elfClass:"ELF64",endianness:"little",elfMachine:(if $packageArch=="x86_64" then "Advanced Micro Devices X86-64" else "AArch64" end)}]' <<<"$asset_json")
