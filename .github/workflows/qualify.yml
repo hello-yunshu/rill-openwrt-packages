@@ -511,6 +511,31 @@ jobs:
           trap 'rm -rf "$work"' EXIT
           ipk_leaf=$(realpath "$(find ipk-feed -type d -name x86_64 -print -quit)")
           test -n "$ipk_leaf"
+          mkdir -p "$work/libc-control" "$work/libc-data"
+          printf '2.0\n' > "$work/debian-binary"
+          cat > "$work/libc-control/control" <<'EOF'
+          Package: libc
+          Version: 1
+          Architecture: all
+          Maintainer: Rill CI
+          Section: base
+          Priority: optional
+          Description: OpenWrt libc base-package test fixture
+          EOF
+          tar -czf "$work/control.tar.gz" -C "$work/libc-control" ./control
+          tar -czf "$work/data.tar.gz" -C "$work/libc-data" .
+          libc_ipk="$ipk_leaf/libc_1_all.ipk"
+          (cd "$work" && ar rc "$libc_ipk" debian-binary control.tar.gz data.tar.gz)
+          libc_size=$(stat -c %s "$libc_ipk")
+          libc_sha=$(sha256sum "$libc_ipk" | awk '{print $1}')
+          {
+            printf '\nPackage: libc\n'
+            printf 'Version: 1\nArchitecture: all\n'
+            printf 'Maintainer: Rill CI\nSection: base\nPriority: optional\n'
+            printf 'Filename: ./libc_1_all.ipk\nSize: %s\nSHA256sum: %s\n' "$libc_size" "$libc_sha"
+            printf 'Description: OpenWrt libc base-package test fixture\n'
+          } >> "$ipk_leaf/Packages"
+          gzip -9nc "$ipk_leaf/Packages" > "$ipk_leaf/Packages.gz"
           mkdir -p "$work/opkg-root/etc/opkg" "$work/opkg-root/var/lib/opkg" "$work/opkg-root/tmp"
           cat > "$work/opkg.conf" <<EOF
           arch all 1
