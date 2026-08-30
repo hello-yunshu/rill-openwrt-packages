@@ -341,11 +341,14 @@ jobs:
             test -x "$SDKDIR/staging_dir/host/bin/opkg"
             cp "$SDKDIR/staging_dir/host/bin/usign" "$GITHUB_WORKSPACE/signing-tools/bin/usign"
             cp "$SDKDIR/staging_dir/host/bin/opkg" "$GITHUB_WORKSPACE/signing-tools/bin/opkg"
+            cp "$SDKDIR/staging_dir/host/bin/.usign.bin" "$GITHUB_WORKSPACE/signing-tools/bin/.usign.bin"
+            cp "$SDKDIR/staging_dir/host/bin/.opkg.bin" "$GITHUB_WORKSPACE/signing-tools/bin/.opkg.bin"
           else
             test -x "$SDKDIR/staging_dir/host/bin/apk"
             cp "$SDKDIR/staging_dir/host/bin/apk" "$GITHUB_WORKSPACE/signing-tools/bin/apk"
+            cp "$SDKDIR/staging_dir/host/bin/.apk.bin" "$GITHUB_WORKSPACE/signing-tools/bin/.apk.bin"
           fi
-          cp "$SDKDIR/staging_dir/host/lib/ld-linux-x86-64.so.2" "$GITHUB_WORKSPACE/signing-tools/lib/"
+          cp -a "$SDKDIR/staging_dir/host/lib/." "$GITHUB_WORKSPACE/signing-tools/lib/"
           chmod +x "$GITHUB_WORKSPACE/signing-tools/lib/ld-linux-x86-64.so.2"
       - uses: actions/upload-artifact@v7
         with:
@@ -449,6 +452,7 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x tools/bin/usign tools/bin/apk
+          chmod +x tools/bin/.usign.bin tools/bin/.apk.bin
           chmod +x tools/lib/ld-linux-x86-64.so.2
           work=$(mktemp -d)
           trap 'rm -rf "$work"' EXIT

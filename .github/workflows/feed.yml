@@ -59,7 +59,10 @@ jobs:
           test -s evidence/qualification.json
           test -x tools/bin/usign
           test -x tools/bin/apk
+          test -f tools/bin/.usign.bin
+          test -f tools/bin/.apk.bin
           chmod +x tools/bin/usign tools/bin/apk
+          chmod +x tools/bin/.usign.bin tools/bin/.apk.bin
           test -x tools/lib/ld-linux-x86-64.so.2
           chmod +x tools/lib/ld-linux-x86-64.so.2
       - name: Select production signing channel
