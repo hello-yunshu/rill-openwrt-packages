@@ -32,7 +32,9 @@ def main() -> int:
         packages = sorted(leaf.glob(f"*.{metadata['pkgtype']}"))
         if len(packages) != 1:
             raise SystemExit(f"expected one package in {leaf}")
-        index_name = "Packages.gz" if metadata["pkgtype"] == "ipk" else "packages.adb"
+        # Keep the manifest index digest aligned with verify_feed.py's
+        # semantic IPK index contract; Packages.gz is checked separately.
+        index_name = "Packages" if metadata["pkgtype"] == "ipk" else "packages.adb"
         index = leaf / index_name
         relative = "/".join(leaf.relative_to(args.feed).parts)
         leaves.append({
