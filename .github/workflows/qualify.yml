@@ -471,13 +471,14 @@ jobs:
           openssl ec -in "$work/apk.sec" -pubout -out "$work/apk.pub" 2>/dev/null
           apk_file=$(find apk-feed -name '*.apk' -print -quit)
           test -n "$apk_file"
+          cp "$apk_file" "$work/rill-runtime.apk"
           tools/bin/apk mkpkg \
             --info name:libc \
             --info version:1.0 \
             --info arch:noarch \
             --info description:'OpenWrt libc base-package test fixture' \
             --output "$work/libc-1.0.apk"
-          tools/bin/apk mkndx --allow-untrusted --sign "$work/apk.sec" --output "$work/packages.adb" "$work/libc-1.0.apk" "$apk_file"
+          tools/bin/apk mkndx --allow-untrusted --sign "$work/apk.sec" --output "$work/packages.adb" "$work/libc-1.0.apk" "$work/rill-runtime.apk"
           mkdir -p "$work/root/etc/apk/keys"
           cp "$work/apk.pub" "$work/root/etc/apk/keys/rill-ci.pub"
           printf 'file://%s\n' "$work/packages.adb" > "$work/root/repositories"
