@@ -33,6 +33,7 @@ class FeedProvenanceTests(unittest.TestCase):
             self.assertEqual(len(manifest["leaves"]), 6)
             self.assertFalse(manifest["productionFeedEligible"])
             self.assertEqual(manifest["qualificationManifestSha256"], hashlib.sha256(qualification.read_bytes()).hexdigest())
+            self.assertEqual({leaf["index"] for leaf in manifest["leaves"]}, {"Packages", "packages.adb"})
 
 
 if __name__ == "__main__":
