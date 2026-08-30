@@ -145,6 +145,20 @@ Rust target 编译结果，并通过 OpenWrt jobserver 以 <code>-j4</code> 运�
 包本身只提供通用 Runtime。宿主产品仍需自行验证其 RPC/LuCI/服务生命周期、
 权限 ACL、配置迁移、回滚和真实硬件行为。
 
+## OpenWrt feed
+
+同一批已通过 qualification 的包也会按目录发布为独立 feed：
+
+    https://hello-yunshu.github.io/rill-openwrt-packages/feed/<openwrt-version>/<target>/<subtarget>/<package-arch>/
+
+OpenWrt 24.10 IPK 可将对应目录加入 customfeeds.conf 后运行 opkg update；
+OpenWrt 25.12 APK 可将对应目录加入 APK repositories 后运行 apk update。
+当前索引明确标记为 unsigned，manifest.json 中的 signing 状态不会伪造可信签名；
+生产环境应在发布并分发受信任 repository key 后再启用强制签名校验。
+
+Feed 由同一 qualification run 的包构建，部署前执行目录、索引和哈希校验；
+只包含当前 6 个已验证 target，不构成对 package 更广泛 OpenWrt/Rust 架构能力的收窄。
+
 ## 目录说明
 
     package/rill-runtime/             canonical OpenWrt package recipe
@@ -153,8 +167,10 @@ Rust target 编译结果，并通过 OpenWrt jobserver 以 <code>-j4</code> 运�
     scripts/update_rill_version.py   Stable version update helper
     scripts/verify_qualification.py consumer qualification evidence verifier
     tests/test_upstream_guard.py  Stable provenance mutation tests
+    scripts/verify_feed.py         feed layout and index verifier
     .github/workflows/qualify.yml    IPK/APK qualification and evidence
     .github/workflows/release.yml    exact-run Release promotion
+    .github/workflows/feed.yml       GitHub Pages feed publication
     .github/workflows/sync-rill-version.yml
                                       scheduled/manual Stable drift PR
 

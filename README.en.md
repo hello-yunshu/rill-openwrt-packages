@@ -70,6 +70,24 @@ shipping a package. Successful runs are promoted without rebuilding into the
 repository's immutable package Release. Cache hits only improve build time;
 they are not release identity or qualification evidence.
 
+## OpenWrt feed
+
+The same qualified package artifacts are published as a directory-layout feed:
+
+    https://hello-yunshu.github.io/rill-openwrt-packages/feed/<openwrt-version>/<target>/<subtarget>/<package-arch>/
+
+For OpenWrt 24.10 IPK, add the selected directory to customfeeds.conf and run
+opkg update. For OpenWrt 25.12 APK, add the selected directory to the APK
+repositories configuration and run apk update. Current indexes are explicitly
+unsigned; manifest.json records signing: unsigned and does not pretend to
+provide a trusted signature. Enable production signature verification only
+after a trusted repository key has been published and distributed.
+
+The feed is assembled from the exact qualification run and independently
+verified for layout, indexes, and package hashes before GitHub Pages deployment.
+It contains only the six currently qualified targets and does not narrow the
+package's broader OpenWrt/Rust architecture capability.
+
 ## License
 
 The package recipes, scripts, and workflows in this repository are released
