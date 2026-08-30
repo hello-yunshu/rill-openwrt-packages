@@ -457,12 +457,12 @@ jobs:
           chmod +x tools/lib/ld-linux-x86-64.so.2
           work=$(mktemp -d)
           trap 'rm -rf "$work"' EXIT
-          tools/bin/usign -G -p "$work/ipk.pub" -s "$work/ipk.sec" -n 'Rill CI ephemeral IPK key'
+          tools/bin/usign -G -p "$work/ipk.pub" -s "$work/ipk.sec" -c 'Rill CI ephemeral IPK key'
           printf 'Package: rill-runtime\n' > "$work/Packages"
           tools/bin/usign -S -m "$work/Packages" -s "$work/ipk.sec" -x "$work/Packages.sig"
           tools/bin/usign -V -m "$work/Packages" -p "$work/ipk.pub" -x "$work/Packages.sig"
           if tools/bin/usign -V -m "$work/Packages" -p "$work/missing.pub" -x "$work/Packages.sig"; then exit 1; fi
-          tools/bin/usign -G -p "$work/wrong-ipk.pub" -s "$work/wrong-ipk.sec" -n 'Rill CI wrong IPK key'
+          tools/bin/usign -G -p "$work/wrong-ipk.pub" -s "$work/wrong-ipk.sec" -c 'Rill CI wrong IPK key'
           if tools/bin/usign -V -m "$work/Packages" -p "$work/wrong-ipk.pub" -x "$work/Packages.sig"; then exit 1; fi
           cp "$work/Packages" "$work/tampered"
           printf 'tamper\n' >> "$work/tampered"
