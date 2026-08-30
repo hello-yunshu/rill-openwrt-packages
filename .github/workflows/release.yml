@@ -5,6 +5,16 @@ on:
     workflows: [OpenWrt package qualification]
     types: [completed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      qualification_run_id:
+        description: Successful OpenWrt package qualification run ID
+        required: true
+        type: string
+      qualification_head_sha:
+        description: Exact head SHA of that qualification run
+        required: true
+        type: string
 
 permissions:
   actions: read
@@ -16,38 +26,38 @@ concurrency:
 
 jobs:
   promote:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 1
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
           name: qualification-evidence
           path: evidence
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
           pattern: rill-runtime-ipk-*
           path: release-assets
           merge-multiple: true
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
           pattern: rill-runtime-apk-*
           path: release-assets
           merge-multiple: true
       - name: Verify exact qualification run and release assets
         id: release
         env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.qualification_head_sha }}
+          RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
         shell: bash
         run: |
           set -euo pipefail
@@ -92,7 +102,7 @@ jobs:
           TAG: ${{ steps.release.outputs.tag }}
           VERSION: ${{ steps.release.outputs.version }}
           RELEASE: ${{ steps.release.outputs.release }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
         shell: bash
         run: |
           set -euo pipefail
