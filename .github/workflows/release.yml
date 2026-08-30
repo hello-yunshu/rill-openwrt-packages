@@ -74,6 +74,7 @@ jobs:
             gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --dir "$existing_dir"
             diff -u <(sort "$existing_dir/SHA256SUMS") <(printf '%s\n' "$new_sums")
             echo "Existing immutable release $tag has identical package hashes; promotion is a no-op."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           cp "$evidence" release-assets/qualification.json
@@ -82,8 +83,10 @@ jobs:
             echo "tag=$tag"
             echo "version=$version"
             echo "release=$release"
+            echo "publish=true"
           } >> "$GITHUB_OUTPUT"
       - name: Publish immutable package release
+        if: ${{ steps.release.outputs.publish == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release.outputs.tag }}
