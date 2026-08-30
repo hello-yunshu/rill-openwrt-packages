@@ -60,6 +60,8 @@ jobs:
           test -x tools/bin/usign
           test -x tools/bin/apk
           chmod +x tools/bin/usign tools/bin/apk
+          test -x tools/lib/ld-linux-x86-64.so.2
+          chmod +x tools/lib/ld-linux-x86-64.so.2
       - name: Select production signing channel
         id: channel
         env:
