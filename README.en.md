@@ -76,12 +76,30 @@ The same qualified package artifacts are published as a directory-layout feed:
 
     https://hello-yunshu.github.io/rill-openwrt-packages/feed/<openwrt-version>/<target>/<subtarget>/<package-arch>/
 
-For OpenWrt 24.10 IPK, add the selected directory to customfeeds.conf and run
-opkg update. For OpenWrt 25.12 APK, add the selected directory to the APK
-repositories configuration and run apk update. Current indexes are explicitly
-unsigned; manifest.json records signing: unsigned and does not pretend to
-provide a trusted signature. Enable production signature verification only
-after a trusted repository key has been published and distributed.
+The feed uses native OpenWrt signing formats: `Packages.sig` with `usign` for
+24.10 and an apk-tools v3 EC repository key inside `packages.adb` for 25.12.
+The implementation, negative tests, and fail-closed gates are ready. Production
+key provisioning by the repository owner is still required before Pages will
+publish a `channel=production` feed. Without the keys, the workflow produces
+development verification only and does not deploy an unsigned production feed.
+
+Example OpenWrt 24.10 configuration:
+
+    echo 'src/gz rill https://hello-yunshu.github.io/rill-openwrt-packages/feed/24.10.8/x86/64/x86_64/' >> /etc/opkg/customfeeds.conf
+    opkg update
+    opkg install rill-runtime
+
+Example OpenWrt 25.12 configuration:
+
+    echo 'https://hello-yunshu.github.io/rill-openwrt-packages/feed/25.12.5/x86/64/x86_64/packages.adb' > /etc/apk/repositories.d/rill.list
+    apk update
+    apk add rill-runtime
+
+After manually checking the public-key fingerprints under the Pages `keys/`
+directory, install the usign key in `/etc/opkg/keys/` for 24.10 and the APK key
+in `/etc/apk/keys/` for 25.12. Missing/wrong keys, tampered indexes, and
+tampered packages must fail. Pages keeps `manifest.json`, `qualification.json`,
+and `SHA256SUMS` so the feed remains auditable after Actions artifacts expire.
 
 The feed is assembled from the exact qualification run and independently
 verified for layout, indexes, and package hashes before GitHub Pages deployment.

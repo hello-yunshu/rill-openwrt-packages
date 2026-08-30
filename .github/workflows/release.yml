@@ -81,8 +81,12 @@ jobs:
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
             existing_dir="$RUNNER_TEMP/existing-release"
             mkdir -p "$existing_dir"
-            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --dir "$existing_dir"
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --pattern qualification.json --pattern '*.ipk' --pattern '*.apk' --dir "$existing_dir"
             diff -u <(sort "$existing_dir/SHA256SUMS") <(printf '%s\n' "$new_sums")
+            diff -u <(jq -S . "$existing_dir/qualification.json") <(jq -S . "$evidence")
+            existing_assets=$(find "$existing_dir" -maxdepth 1 -type f \( -name '*.ipk' -o -name '*.apk' \) -printf '%f\n' | sort)
+            new_assets=$(printf '%s\n' "${assets[@]}" | xargs -n1 basename | sort)
+            diff -u <(printf '%s\n' "$existing_assets") <(printf '%s\n' "$new_assets")
             echo "Existing immutable release $tag has identical package hashes; promotion is a no-op."
             echo "publish=false" >> "$GITHUB_OUTPUT"
             exit 0
