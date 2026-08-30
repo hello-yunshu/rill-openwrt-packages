@@ -288,7 +288,15 @@ jobs:
             ipk)
               (
                 cd "$feed_dir"
-                "$SDKDIR/scripts/ipkg-make-index.sh" . > Packages.manifest
+                mkhash="$RUNNER_TEMP/openwrt-mkhash"
+                cat > "$mkhash" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          test "$1" = sha256
+          sha256sum "$2" | awk '{print $1}'
+          EOF
+                chmod +x "$mkhash"
+                MKHASH="$mkhash" "$SDKDIR/scripts/ipkg-make-index.sh" . > Packages.manifest
                 grep -vE '^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)' Packages.manifest > Packages
                 gzip -9nc Packages > Packages.gz
               )
