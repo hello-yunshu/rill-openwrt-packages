@@ -1,0 +1,87 @@
+name: Publish qualified OpenWrt runtime release
+
+on:
+  workflow_run:
+    workflows: [OpenWrt package qualification]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: rill-runtime-release-promotion
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 1
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: qualification-evidence
+          path: evidence
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          pattern: rill-runtime-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify exact qualification run and release assets
+        id: release
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence=$(find evidence -type f -name qualification.json -print -quit)
+          test -n "$evidence"
+          jq -e --arg sha "$HEAD_SHA" --arg run "$RUN_ID" \
+            '.schemaVersion == 2 and .packageCommit == $sha and .runId == $run and .qualificationState == "automated-qualification" and .releaseEligible == true and (.targets|length) > 0 and all(.targets[]; .qualificationState == "PASS")' \
+            "$evidence" >/dev/null
+          version=$(jq -r '.package.version' "$evidence")
+          release=$(jq -r '.package.release' "$evidence")
+          tag="v${version}-r${release}"
+          test "$(jq -r '.upstream.tag' metadata/rill-runtime.json)" = "v${version}"
+          test "$(jq -r '.upstream.commit' metadata/rill-runtime.json)" = "$(jq -r '.upstream.commit' "$evidence")"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "ERROR: release tag already exists: $tag" >&2
+            exit 1
+          fi
+          mapfile -t assets < <(find release-assets -maxdepth 2 -type f \( -name '*.ipk' -o -name '*.apk' \) -print | sort)
+          target_count=$(jq '.targets | length' "$evidence")
+          test "${#assets[@]}" -eq "$target_count"
+          for asset in "${assets[@]}"; do
+            test -s "$asset"
+          done
+          cp "$evidence" release-assets/qualification.json
+          (cd release-assets && sha256sum -- *.ipk *.apk) > release-assets/SHA256SUMS
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "release=$release"
+          } >> "$GITHUB_OUTPUT"
+      - name: Publish immutable package release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+          RELEASE: ${{ steps.release.outputs.release }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" release-assets/*.ipk release-assets/*.apk release-assets/SHA256SUMS release-assets/qualification.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "rill-runtime $TAG" \
+            --notes "Promoted from exact OpenWrt qualification run ${RUN_ID} for package ${VERSION}-${RELEASE}. Assets and qualification.json are from that same successful run; no release rebuild was performed."

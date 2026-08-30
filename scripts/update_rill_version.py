@@ -41,6 +41,28 @@ def main() -> int:
     archive_url = f"{ARCHIVE_BASE}{tag}.tar.gz"
     archive_hash = archive_sha256(archive_url)
 
+    current_version, _, current_hash = guard.package_fields()
+    metadata_version, metadata_tag, metadata_commit, metadata_hash = guard.metadata_fields()
+    assessment = guard.assess_provenance(
+        upstream_version=version,
+        upstream_tag=tag,
+        upstream_commit=tag_commit,
+        upstream_hash=archive_hash,
+        package_version=current_version,
+        package_hash=current_hash,
+        metadata_version=metadata_version,
+        metadata_tag=metadata_tag,
+        metadata_commit=metadata_commit,
+        metadata_hash=metadata_hash,
+    )
+    if assessment["mutatedStable"]:
+        raise SystemExit(
+            "ERROR: MUTATED_STABLE: same Stable SemVer has changed tag commit or archive hash; "
+            "publish a new upstream version before updating this package"
+        )
+    if assessment["rollback"]:
+        raise SystemExit("ERROR: ROLLBACK: refusing to move the package to a lower Stable version")
+
     makefile = ROOT / "package/rill-runtime/Makefile"
     text = makefile.read_text(encoding="utf-8")
     text, version_count = re.subn(r"(?m)^PKG_VERSION:=\S+$", f"PKG_VERSION:={version}", text)

@@ -52,10 +52,11 @@ Use a matching OpenWrt SDK:
     make package/rill-runtime/compile V=s
 
 The official qualification workflow builds both package formats, checks the
-final payload, and uploads immutable provenance evidence. It stages Rust
-<code>1.94.0</code> into the target SDK host staging area while retaining
-OpenWrt's <code>rust-package.mk</code> build helper, so the SDK's older
-<code>rust/host</code> compiler is not rebuilt.
+final payload, and uploads immutable provenance evidence. The canonical
+qualification path uses an explicit, cached, version-pinned Rust toolchain
+contract together with OpenWrt's <code>rust-package.mk</code> helper. Architecture
+capability is broader than the current automated qualification matrix; see
+<code>metadata/architecture-capability.json</code> for the separate states.
 Per-SDK caches cover downloads, Cargo/Rust inputs, and safe Rust target output;
 the package build uses bounded <code>-j4</code> jobserver parallelism.
 
@@ -65,8 +66,9 @@ Check Stable drift locally:
 
 Downstream consumers should pin an immutable commit, require a successful
 qualification run, and verify its <code>qualification-evidence</code> artifact before
-shipping a package. Cache hits only improve build time; they are not release
-identity or qualification evidence.
+shipping a package. Successful runs are promoted without rebuilding into the
+repository's immutable package Release. Cache hits only improve build time;
+they are not release identity or qualification evidence.
 
 ## License
 
