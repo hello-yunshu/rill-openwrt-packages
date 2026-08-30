@@ -487,7 +487,7 @@ jobs:
           # the transaction real while isolating this CI-only rootfs fixture.
           tools/bin/apk --root "$work/root" --usermode --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add --initdb rill-runtime
           test -x "$work/root/usr/bin/rill-runtime"
-          tools/bin/apk --root "$work/root" --usermode --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache del rill-runtime
+          tools/bin/apk --root "$work/root" --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache del rill-runtime
           test ! -e "$work/root/usr/bin/rill-runtime"
           tools/bin/apk --root "$work/root" --usermode --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update
           rm "$work/root/etc/apk/keys/rill-ci.pub"
