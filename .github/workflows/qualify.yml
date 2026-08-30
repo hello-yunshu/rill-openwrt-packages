@@ -449,6 +449,7 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x tools/bin/usign tools/bin/apk
+          chmod +x tools/lib/ld-linux-x86-64.so.2
           work=$(mktemp -d)
           trap 'rm -rf "$work"' EXIT
           tools/bin/usign -G -p "$work/ipk.pub" -s "$work/ipk.sec" -n 'Rill CI ephemeral IPK key'
