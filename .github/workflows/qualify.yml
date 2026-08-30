@@ -509,7 +509,7 @@ jobs:
           chmod +x tools/bin/opkg
           work=$(mktemp -d)
           trap 'rm -rf "$work"' EXIT
-          ipk_leaf=$(find ipk-feed -type d -name x86_64 -print -quit)
+          ipk_leaf=$(realpath "$(find ipk-feed -type d -name x86_64 -print -quit)")
           test -n "$ipk_leaf"
           mkdir -p "$work/opkg-root/etc/opkg" "$work/opkg-root/var/lib/opkg" "$work/opkg-root/tmp"
           cat > "$work/opkg.conf" <<EOF
