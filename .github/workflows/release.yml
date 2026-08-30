@@ -37,20 +37,20 @@ jobs:
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
-          name: qualification-evidence
+          name: qualification-evidence-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
           path: evidence
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
-          pattern: rill-runtime-ipk-*
+          pattern: rill-runtime-ipk-*-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
           path: release-assets
           merge-multiple: true
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
-          pattern: rill-runtime-apk-*
+          pattern: rill-runtime-apk-*-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
           path: release-assets
           merge-multiple: true
       - name: Verify exact qualification run and release assets
