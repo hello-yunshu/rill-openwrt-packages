@@ -57,9 +57,9 @@ jobs:
           mkdir -p site/feed
           cp -a feed-artifacts/. site/feed/
           test -s evidence/qualification.json
-          test -x tools/usign
-          test -x tools/apk
-          chmod +x tools/usign tools/apk
+          test -x tools/bin/usign
+          test -x tools/bin/apk
+          chmod +x tools/bin/usign tools/bin/apk
       - name: Select production signing channel
         id: channel
         env:
@@ -80,8 +80,8 @@ jobs:
           printf '%s\n' "$APK_SIGNING_KEY" > "$RUNNER_TEMP/rill-apk.sec"
           chmod 600 "$RUNNER_TEMP/rill-ipk.sec" "$RUNNER_TEMP/rill-apk.sec"
           printf 'key-match\n' > "$RUNNER_TEMP/key-match"
-          tools/usign -S -m "$RUNNER_TEMP/key-match" -s "$RUNNER_TEMP/rill-ipk.sec" -x "$RUNNER_TEMP/key-match.sig"
-          tools/usign -V -m "$RUNNER_TEMP/key-match" -p keys/rill-openwrt-feed-usign.pub -x "$RUNNER_TEMP/key-match.sig" -q
+          tools/bin/usign -S -m "$RUNNER_TEMP/key-match" -s "$RUNNER_TEMP/rill-ipk.sec" -x "$RUNNER_TEMP/key-match.sig"
+          tools/bin/usign -V -m "$RUNNER_TEMP/key-match" -p keys/rill-openwrt-feed-usign.pub -x "$RUNNER_TEMP/key-match.sig" -q
           openssl pkey -in "$RUNNER_TEMP/rill-apk.sec" -pubout -out "$RUNNER_TEMP/rill-apk.pub"
           cmp -s "$RUNNER_TEMP/rill-apk.pub" keys/rill-openwrt-feed-apk.pub
           echo 'production_eligible=true' >> "$GITHUB_OUTPUT"
@@ -100,8 +100,8 @@ jobs:
           python3 scripts/sign_feed.py site/feed \
             --ipk-private-key "$RUNNER_TEMP/rill-ipk.sec" \
             --apk-private-key "$RUNNER_TEMP/rill-apk.sec" \
-            --usign "$GITHUB_WORKSPACE/tools/usign" \
-            --apk "$GITHUB_WORKSPACE/tools/apk" \
+            --usign "$GITHUB_WORKSPACE/tools/bin/usign" \
+            --apk "$GITHUB_WORKSPACE/tools/bin/apk" \
             --apk-root "$RUNNER_TEMP/apk-root"
       - name: Generate durable provenance and verify feed semantics
         id: manifest
@@ -116,7 +116,7 @@ jobs:
           key_id=''
           public_args=()
           if [ "$channel" = production ]; then
-            key_id="$(tools/usign -F -p keys/rill-openwrt-feed-usign.pub)|$(sha256sum keys/rill-openwrt-feed-apk.pub | awk '{print $1}')"
+            key_id="$(tools/bin/usign -F -p keys/rill-openwrt-feed-usign.pub)|$(sha256sum keys/rill-openwrt-feed-apk.pub | awk '{print $1}')"
             public_args=(--public-key keys/rill-openwrt-feed-usign.pub --apk-public-key keys/rill-openwrt-feed-apk.pub --key-id "$key_id")
             mkdir -p site/keys
             cp keys/rill-openwrt-feed-usign.pub keys/rill-openwrt-feed-apk.pub site/keys/
@@ -124,8 +124,8 @@ jobs:
           python3 scripts/build_feed_manifest.py site/feed evidence/qualification.json site/feed/manifest.json --channel "$channel" \
             --release-url "https://github.com/${GITHUB_REPOSITORY}/releases/tag/$(jq -r '.package.version' evidence/qualification.json | sed 's/^/v/')-r$(jq -r '.package.release' evidence/qualification.json)" \
             "${public_args[@]}"
-          python3 scripts/verify_feed.py site/feed --channel "$channel" --manifest site/feed/manifest.json --apk tools/apk \
-            ${channel:+--usign tools/usign} \
+          python3 scripts/verify_feed.py site/feed --channel "$channel" --manifest site/feed/manifest.json --apk tools/bin/apk \
+            ${channel:+--usign tools/bin/usign} \
             ${channel:+--public-key keys/rill-openwrt-feed-usign.pub} \
             ${channel:+--apk-public-key keys/rill-openwrt-feed-apk.pub}
           mkdir -p site

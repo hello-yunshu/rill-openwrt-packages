@@ -335,16 +335,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$GITHUB_WORKSPACE/signing-tools"
+          mkdir -p "$GITHUB_WORKSPACE/signing-tools/bin" "$GITHUB_WORKSPACE/signing-tools/lib"
           if [ "${{ matrix.pkgtype }}" = ipk ]; then
             test -x "$SDKDIR/staging_dir/host/bin/usign"
             test -x "$SDKDIR/staging_dir/host/bin/opkg"
-            cp "$SDKDIR/staging_dir/host/bin/usign" "$GITHUB_WORKSPACE/signing-tools/usign"
-            cp "$SDKDIR/staging_dir/host/bin/opkg" "$GITHUB_WORKSPACE/signing-tools/opkg"
+            cp "$SDKDIR/staging_dir/host/bin/usign" "$GITHUB_WORKSPACE/signing-tools/bin/usign"
+            cp "$SDKDIR/staging_dir/host/bin/opkg" "$GITHUB_WORKSPACE/signing-tools/bin/opkg"
           else
             test -x "$SDKDIR/staging_dir/host/bin/apk"
-            cp "$SDKDIR/staging_dir/host/bin/apk" "$GITHUB_WORKSPACE/signing-tools/apk"
+            cp "$SDKDIR/staging_dir/host/bin/apk" "$GITHUB_WORKSPACE/signing-tools/bin/apk"
           fi
+          cp "$SDKDIR/staging_dir/host/lib/ld-linux-x86-64.so.2" "$GITHUB_WORKSPACE/signing-tools/lib/"
       - uses: actions/upload-artifact@v7
         with:
           name: rill-runtime-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}
@@ -446,45 +447,45 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x tools/usign tools/apk
+          chmod +x tools/bin/usign tools/bin/apk
           work=$(mktemp -d)
           trap 'rm -rf "$work"' EXIT
-          tools/usign -G -p "$work/ipk.pub" -s "$work/ipk.sec" -n 'Rill CI ephemeral IPK key'
+          tools/bin/usign -G -p "$work/ipk.pub" -s "$work/ipk.sec" -n 'Rill CI ephemeral IPK key'
           printf 'Package: rill-runtime\n' > "$work/Packages"
-          tools/usign -S -m "$work/Packages" -s "$work/ipk.sec" -x "$work/Packages.sig"
-          tools/usign -V -m "$work/Packages" -p "$work/ipk.pub" -x "$work/Packages.sig"
-          if tools/usign -V -m "$work/Packages" -p "$work/missing.pub" -x "$work/Packages.sig"; then exit 1; fi
-          tools/usign -G -p "$work/wrong-ipk.pub" -s "$work/wrong-ipk.sec" -n 'Rill CI wrong IPK key'
-          if tools/usign -V -m "$work/Packages" -p "$work/wrong-ipk.pub" -x "$work/Packages.sig"; then exit 1; fi
+          tools/bin/usign -S -m "$work/Packages" -s "$work/ipk.sec" -x "$work/Packages.sig"
+          tools/bin/usign -V -m "$work/Packages" -p "$work/ipk.pub" -x "$work/Packages.sig"
+          if tools/bin/usign -V -m "$work/Packages" -p "$work/missing.pub" -x "$work/Packages.sig"; then exit 1; fi
+          tools/bin/usign -G -p "$work/wrong-ipk.pub" -s "$work/wrong-ipk.sec" -n 'Rill CI wrong IPK key'
+          if tools/bin/usign -V -m "$work/Packages" -p "$work/wrong-ipk.pub" -x "$work/Packages.sig"; then exit 1; fi
           cp "$work/Packages" "$work/tampered"
           printf 'tamper\n' >> "$work/tampered"
-          if tools/usign -V -m "$work/tampered" -p "$work/ipk.pub" -x "$work/Packages.sig"; then exit 1; fi
+          if tools/bin/usign -V -m "$work/tampered" -p "$work/ipk.pub" -x "$work/Packages.sig"; then exit 1; fi
           openssl ecparam -name prime256v1 -genkey -noout -out "$work/apk.sec"
           openssl ec -in "$work/apk.sec" -pubout -out "$work/apk.pub" 2>/dev/null
           apk_file=$(find apk-feed -name '*.apk' -print -quit)
           test -n "$apk_file"
-          tools/apk mkndx --allow-untrusted --sign "$work/apk.sec" --output "$work/packages.adb" "$apk_file"
+          tools/bin/apk mkndx --allow-untrusted --sign "$work/apk.sec" --output "$work/packages.adb" "$apk_file"
           mkdir -p "$work/root/etc/apk/keys"
           cp "$work/apk.pub" "$work/root/etc/apk/keys/rill-ci.pub"
           printf 'file://%s\n' "$work/packages.adb" > "$work/root/repositories"
-          tools/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update
+          tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update
           rm "$work/root/etc/apk/keys/rill-ci.pub"
-          if tools/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
+          if tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
           cp "$work/apk.pub" "$work/wrong.pub"
           openssl ecparam -name prime256v1 -genkey -noout -out "$work/wrong.sec"
           openssl ec -in "$work/wrong.sec" -pubout -out "$work/wrong.pub" 2>/dev/null
           cp "$work/wrong.pub" "$work/root/etc/apk/keys/wrong.pub"
-          if tools/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
+          if tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
           cp "$work/apk.pub" "$work/root/etc/apk/keys/rill-ci.pub"
           cp "$work/packages.adb" "$work/tampered.adb"
           printf 'tamper' >> "$work/tampered.adb"
           printf 'file://%s\n' "$work/tampered.adb" > "$work/root/repositories"
-          if tools/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
+          if tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update; then exit 1; fi
       - name: Exercise real package-manager repository transactions
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x tools/opkg
+          chmod +x tools/bin/opkg
           work=$(mktemp -d)
           trap 'rm -rf "$work"' EXIT
           ipk_leaf=$(find ipk-feed -type d -name x86_64 -print -quit)
@@ -496,8 +497,8 @@ jobs:
           lists_dir ext $work/opkg-root/var/lib/opkg
           src/gz rill file://$ipk_leaf
           EOF
-          tools/opkg -f "$work/opkg.conf" -o "$work/opkg-root" update
-          tools/opkg -f "$work/opkg.conf" -o "$work/opkg-root" install rill-runtime
+          tools/bin/opkg -f "$work/opkg.conf" -o "$work/opkg-root" update
+          tools/bin/opkg -f "$work/opkg.conf" -o "$work/opkg-root" install rill-runtime
           test -x "$work/opkg-root/usr/bin/rill-runtime"
-          tools/opkg -f "$work/opkg.conf" -o "$work/opkg-root" remove rill-runtime
+          tools/bin/opkg -f "$work/opkg.conf" -o "$work/opkg-root" remove rill-runtime
           test ! -e "$work/opkg-root/usr/bin/rill-runtime"
