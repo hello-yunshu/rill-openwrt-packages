@@ -33,7 +33,14 @@ jobs:
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
-          pattern: rill-runtime-*
+          pattern: rill-runtime-ipk-*
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          pattern: rill-runtime-apk-*
           path: release-assets
           merge-multiple: true
       - name: Verify exact qualification run and release assets
@@ -54,18 +61,23 @@ jobs:
           tag="v${version}-r${release}"
           test "$(jq -r '.upstream.tag' metadata/rill-runtime.json)" = "v${version}"
           test "$(jq -r '.upstream.commit' metadata/rill-runtime.json)" = "$(jq -r '.upstream.commit' "$evidence")"
-          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
-            echo "ERROR: release tag already exists: $tag" >&2
-            exit 1
-          fi
           mapfile -t assets < <(find release-assets -maxdepth 2 -type f \( -name '*.ipk' -o -name '*.apk' \) -print | sort)
           target_count=$(jq '.targets | length' "$evidence")
           test "${#assets[@]}" -eq "$target_count"
           for asset in "${assets[@]}"; do
             test -s "$asset"
           done
+          new_sums=$(cd release-assets && sha256sum -- *.ipk *.apk | sort)
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            existing_dir="$RUNNER_TEMP/existing-release"
+            mkdir -p "$existing_dir"
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --dir "$existing_dir"
+            diff -u <(sort "$existing_dir/SHA256SUMS") <(printf '%s\n' "$new_sums")
+            echo "Existing immutable release $tag has identical package hashes; promotion is a no-op."
+            exit 0
+          fi
           cp "$evidence" release-assets/qualification.json
-          (cd release-assets && sha256sum -- *.ipk *.apk) > release-assets/SHA256SUMS
+          printf '%s\n' "$new_sums" > release-assets/SHA256SUMS
           {
             echo "tag=$tag"
             echo "version=$version"

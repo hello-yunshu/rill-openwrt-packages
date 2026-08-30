@@ -1,0 +1,68 @@
+name: Publish OpenWrt package feed
+
+on:
+  workflow_run:
+    workflows: [OpenWrt package qualification]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: rill-openwrt-feed
+  cancel-in-progress: false
+
+jobs:
+  build-feed:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 1
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          pattern: rill-runtime-feed-*
+          path: feed-artifacts
+          merge-multiple: true
+      - name: Verify exact feed layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d feed-artifacts
+          mkdir -p site/feed
+          cp -a feed-artifacts/. site/feed/
+          python3 scripts/verify_feed.py site/feed
+          jq -n --arg qualificationRun "${{ github.event.workflow_run.id }}" --arg packageCommit "${{ github.event.workflow_run.head_sha }}" '{schemaVersion:1,package:"rill-runtime",qualificationRun:$qualificationRun,packageCommit:$packageCommit,signing:"unsigned",signatureRequiredForProduction:true,leaves:6}' > site/feed/manifest.json
+          cat > site/index.html <<'EOF'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Rill OpenWrt package feed</title>
+          <h1>Rill OpenWrt package feed</h1>
+          <p>Qualified rill-runtime packages, partitioned by OpenWrt release, target, subtarget, and package architecture.</p>
+          <p>Indexes are currently unsigned. Configure package-manager signature verification only after a trusted feed key is published.</p>
+          <ul>
+            <li><a href="feed/24.10.8/">OpenWrt 24.10.8 IPK</a></li>
+            <li><a href="feed/25.12.5/">OpenWrt 25.12.5 APK</a></li>
+          </ul>
+          EOF
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build-feed
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
