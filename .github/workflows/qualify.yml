@@ -346,6 +346,7 @@ jobs:
             cp "$SDKDIR/staging_dir/host/bin/apk" "$GITHUB_WORKSPACE/signing-tools/bin/apk"
           fi
           cp "$SDKDIR/staging_dir/host/lib/ld-linux-x86-64.so.2" "$GITHUB_WORKSPACE/signing-tools/lib/"
+          chmod +x "$GITHUB_WORKSPACE/signing-tools/lib/ld-linux-x86-64.so.2"
       - uses: actions/upload-artifact@v7
         with:
           name: rill-runtime-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}
