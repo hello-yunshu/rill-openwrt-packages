@@ -584,7 +584,8 @@ jobs:
           }
 
           host_key_dir=/etc/opkg/keys
-          host_key="$host_key_dir/rill-ci-${GITHUB_RUN_ID}.pub"
+          ipk_key_id=$(tools/bin/usign -F -p "$work/ipk.pub")
+          host_key="$host_key_dir/$ipk_key_id"
           wrong_host_key="$host_key_dir/rill-ci-wrong-${GITHUB_RUN_ID}.pub"
           sudo mkdir -p "$host_key_dir"
           cleanup_opkg_key() {
@@ -621,6 +622,8 @@ jobs:
           tools/bin/usign -G -p "$work/wrong.pub" -s "$work/wrong.sec" -c 'Rill CI wrong OPKG repository key'
           wrong_key_root="$work/wrong-key-root"
           write_opkg_conf "$wrong_key_root" "$ipk_leaf"
+          wrong_ipk_key_id=$(tools/bin/usign -F -p "$work/wrong.pub")
+          wrong_host_key="$host_key_dir/$wrong_ipk_key_id"
           sudo cp "$work/wrong.pub" "$wrong_host_key"
           if OPKG_CONF_DIR="$work/empty-conf" tools/bin/opkg -f "$wrong_key_root/opkg.conf" update; then
             echo 'wrong trusted key unexpectedly accepted by OPKG' >&2
