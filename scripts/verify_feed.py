@@ -18,15 +18,24 @@ import zlib
 from pathlib import Path
 from typing import Any
 
-EXPECTED = {("24.10.8", "ipk"), ("25.12.5", "apk")}
-EXPECTED_LEAVES = {
-    ("24.10.8", "x86", "64", "x86_64"),
-    ("24.10.8", "armsr", "armv8", "aarch64_generic"),
-    ("24.10.8", "mediatek", "filogic", "aarch64_cortex-a53"),
-    ("25.12.5", "x86", "64", "x86_64"),
-    ("25.12.5", "armsr", "armv8", "aarch64_generic"),
-    ("25.12.5", "mediatek", "filogic", "aarch64_cortex-a53"),
-}
+try:
+    from scripts.openwrt_targets import entries
+except ModuleNotFoundError:
+    from openwrt_targets import entries
+
+
+def registry_identities() -> tuple[set[tuple[str, str]], set[tuple[str, str, str, str]], dict[tuple[str, str, str, str], dict[str, object]]]:
+    targets = entries()
+    expected = {(str(item["openwrtVersion"]), str(item["pkgtype"])) for item in targets}
+    leaves = {
+        (str(item["openwrtVersion"]), str(item["target"]), str(item["subtarget"]), str(item["packageArch"]))
+        for item in targets
+    }
+    by_leaf = {
+        (str(item["openwrtVersion"]), str(item["target"]), str(item["subtarget"]), str(item["packageArch"])): item
+        for item in targets
+    }
+    return expected, leaves, by_leaf
 
 
 def sha256(path: Path) -> str:
@@ -120,6 +129,7 @@ def verify(
     apk_public_key: Path | None = None,
 ) -> list[str]:
     errors: list[str] = []
+    expected, expected_leaves, by_leaf = registry_identities()
     manifest: dict[str, Any] | None = None
     if manifest_path:
         try:
@@ -161,16 +171,21 @@ def verify(
             errors.append(f"invalid feed directory depth: {leaf}")
             continue
         version, target, subtarget, package_arch = relative
-        pkgtype = "ipk" if version == "24.10.8" else "apk" if version == "25.12.5" else "unknown"
         identity = (version, target, subtarget, package_arch)
-        if (version, pkgtype) not in EXPECTED:
+        registry_item = by_leaf.get(identity)
+        pkgtype = str(registry_item["pkgtype"]) if registry_item else "unknown"
+        if (version, pkgtype) not in expected:
             errors.append(f"unsupported feed version/type: {leaf}")
             continue
         if identity in seen:
             errors.append(f"duplicate feed leaf: {'/'.join(identity)}")
         seen.add(identity)
-        if identity not in EXPECTED_LEAVES:
+        if identity not in expected_leaves:
             errors.append(f"unexpected qualified feed leaf: {'/'.join(identity)}")
+        else:
+            registry_item = by_leaf[identity]
+            if registry_item.get("pkgtype") != pkgtype:
+                errors.append(f"package type mismatch in {leaf}")
 
         metadata_path = leaf / "feed-metadata.json"
         metadata: dict[str, Any] = {}
@@ -186,8 +201,8 @@ def verify(
                 "openwrtVersion": version, "target": target, "subtarget": subtarget,
                 "packageArch": package_arch, "pkgtype": pkgtype, "package": "rill-runtime",
             }
-            for field, expected in expected_metadata.items():
-                if metadata.get(field) != expected:
+            for field, expected_value in expected_metadata.items():
+                if metadata.get(field) != expected_value:
                     errors.append(f"{field} mismatch in {leaf}")
             if channel == "production" and metadata.get("signing") != "signed":
                 errors.append(f"production leaf is not signed: {leaf}")
@@ -210,12 +225,12 @@ def verify(
                 except (OSError, EOFError, zlib.error) as exc:
                     errors.append(f"invalid Packages.gz in {leaf}: {exc}")
                 fields = _fields(index.read_text(encoding="utf-8"))
-                expected = {"Package": "rill-runtime", "Filename": package.name, "Size": str(package.stat().st_size), "SHA256sum": sha256(package)}
+                expected_index = {"Package": "rill-runtime", "Filename": package.name, "Size": str(package.stat().st_size), "SHA256sum": sha256(package)}
                 if metadata.get("packageVersion"):
-                    expected["Version"] = str(metadata["packageVersion"])
+                    expected_index["Version"] = str(metadata["packageVersion"])
                 if metadata.get("packageArch"):
-                    expected["Architecture"] = str(metadata["packageArch"])
-                for field, value in expected.items():
+                    expected_index["Architecture"] = str(metadata["packageArch"])
+                for field, value in expected_index.items():
                     if fields.get(field) != value:
                         errors.append(f"Packages {field} mismatch in {leaf}: expected {value!r}, got {fields.get(field)!r}")
             if channel == "production":
@@ -257,18 +272,18 @@ def verify(
         entry = {"path": "/".join(relative), "package": package.name, "packageSha256": sha256(package), "packageSize": package.stat().st_size, "index": index.name, "indexSha256": sha256(index) if index.is_file() else None}
         manifest_entries.append(entry)
         if expected_manifest:
-            expected = expected_manifest.get(entry["path"])
-            if not expected:
+            expected_entry = expected_manifest.get(entry["path"])
+            if not expected_entry:
                 errors.append(f"feed leaf missing from manifest: {entry['path']}")
             else:
                 for field in ("package", "packageSha256", "packageSize", "index", "indexSha256"):
-                    if expected.get(field) != entry[field]:
+                    if expected_entry.get(field) != entry[field]:
                         errors.append(f"manifest {field} mismatch in {entry['path']}")
 
-    if len(manifest_entries) != 6:
-        errors.append(f"expected 6 qualified feed leaves, found {len(manifest_entries)}")
-    if manifest and len(manifest.get("leaves", [])) != 6:
-        errors.append("feed manifest must contain six leaves")
+    if {tuple(path.relative_to(root).parts) for path in leaves} != expected_leaves:
+        errors.append("feed leaves do not match metadata/openwrt-targets.json")
+    if manifest and {tuple(str(item.get("path", "")).split("/")) for item in manifest.get("leaves", [])} != expected_leaves:
+        errors.append("feed manifest leaves do not match metadata/openwrt-targets.json")
     if channel == "production" and manifest and manifest.get("productionFeedEligible") is not True:
         errors.append("production feed manifest must set productionFeedEligible=true")
     return errors

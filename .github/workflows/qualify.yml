@@ -19,6 +19,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  target-registry:
+    name: Validate OpenWrt target registry
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.registry.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest tests.test_target_registry
+          echo "matrix=$(python3 scripts/openwrt_targets.py --matrix)" >> "$GITHUB_OUTPUT"
+
   upstream-version-sync:
     name: Upstream Stable version sync
     runs-on: ubuntu-latest
@@ -30,74 +44,18 @@ jobs:
           set -euo pipefail
           python3 scripts/check_upstream_version.py --json | tee "$RUNNER_TEMP/upstream-version.json"
           jq -e '.inSync == true' "$RUNNER_TEMP/upstream-version.json"
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   package:
     name: ${{ matrix.pkgtype }} OpenWrt ${{ matrix.branch }} ${{ matrix.package_arch }}
+    needs: target-registry
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - branch: v24.10.8
-            release_version: 24.10.8
-            pkgtype: ipk
-            openwrt_target: x86
-            openwrt_subtarget: 64
-            sdk_prefix: x86-64
-            package_arch: x86_64
-            rust_target: x86_64-unknown-linux-musl
-            elf_machine: 'Advanced Micro Devices X86-64'
-            support_tier: p0-openwrt-package
-          - branch: v24.10.8
-            release_version: 24.10.8
-            pkgtype: ipk
-            openwrt_target: armsr
-            openwrt_subtarget: armv8
-            sdk_prefix: armsr-armv8
-            package_arch: aarch64_generic
-            rust_target: aarch64-unknown-linux-musl
-            elf_machine: AArch64
-            support_tier: p0-openwrt-package
-          - branch: v24.10.8
-            release_version: 24.10.8
-            pkgtype: ipk
-            openwrt_target: mediatek
-            openwrt_subtarget: filogic
-            sdk_prefix: mediatek-filogic
-            package_arch: aarch64_cortex-a53
-            rust_target: aarch64-unknown-linux-musl
-            elf_machine: AArch64
-            support_tier: p0-openwrt-package
-          - branch: v25.12.5
-            release_version: 25.12.5
-            pkgtype: apk
-            openwrt_target: x86
-            openwrt_subtarget: 64
-            sdk_prefix: x86-64
-            package_arch: x86_64
-            rust_target: x86_64-unknown-linux-musl
-            elf_machine: 'Advanced Micro Devices X86-64'
-            support_tier: p0-openwrt-package
-          - branch: v25.12.5
-            release_version: 25.12.5
-            pkgtype: apk
-            openwrt_target: armsr
-            openwrt_subtarget: armv8
-            sdk_prefix: armsr-armv8
-            package_arch: aarch64_generic
-            rust_target: aarch64-unknown-linux-musl
-            elf_machine: AArch64
-            support_tier: p0-openwrt-package
-          - branch: v25.12.5
-            release_version: 25.12.5
-            pkgtype: apk
-            openwrt_target: mediatek
-            openwrt_subtarget: filogic
-            sdk_prefix: mediatek-filogic
-            package_arch: aarch64_cortex-a53
-            rust_target: aarch64-unknown-linux-musl
-            elf_machine: AArch64
-            support_tier: p0-openwrt-package
+      matrix: ${{ fromJSON(needs.target-registry.outputs.matrix) }}
+      # Entries are generated from metadata/openwrt-targets.json.
+      # Keep the registry as the only target identity source.
     steps:
       - uses: actions/checkout@v7
       - name: Install SDK host dependencies
@@ -402,19 +360,22 @@ jobs:
           upstream_commit=$(jq -r '.upstream.commit' metadata/rill-runtime.json)
           archive_sha=$(jq -r '.upstream.archiveSha256' metadata/rill-runtime.json)
           assets=$(find evidence/artifacts -type f \( -name '*.ipk' -o -name '*.apk' \) -print | sort)
-          test "$(printf '%s\n' "$assets" | sed '/^$/d' | wc -l | tr -d ' ')" -eq 6
+          expected_count=$(python3 scripts/openwrt_targets.py --count)
+          test "$(printf '%s\n' "$assets" | sed '/^$/d' | wc -l | tr -d ' ')" -eq "$expected_count"
           asset_json='[]'
           for asset in $assets; do
             base=$(basename "$asset")
-            case "$base" in
-              rill-runtime-v24.10.8-x86_64.ipk) openwrt_version='24.10.8'; openwrt_target='x86'; openwrt_subtarget='64'; package_arch='x86_64'; rust_target='x86_64-unknown-linux-musl'; pkgtype='ipk'; support_tier='p0-openwrt-package' ;;
-              rill-runtime-v24.10.8-aarch64_generic.ipk) openwrt_version='24.10.8'; openwrt_target='armsr'; openwrt_subtarget='armv8'; package_arch='aarch64_generic'; rust_target='aarch64-unknown-linux-musl'; pkgtype='ipk'; support_tier='p0-openwrt-package' ;;
-              rill-runtime-v24.10.8-aarch64_cortex-a53.ipk) openwrt_version='24.10.8'; openwrt_target='mediatek'; openwrt_subtarget='filogic'; package_arch='aarch64_cortex-a53'; rust_target='aarch64-unknown-linux-musl'; pkgtype='ipk'; support_tier='p0-openwrt-package' ;;
-              rill-runtime-v25.12.5-x86_64.apk) openwrt_version='25.12.5'; openwrt_target='x86'; openwrt_subtarget='64'; package_arch='x86_64'; rust_target='x86_64-unknown-linux-musl'; pkgtype='apk'; support_tier='p0-openwrt-package' ;;
-              rill-runtime-v25.12.5-aarch64_generic.apk) openwrt_version='25.12.5'; openwrt_target='armsr'; openwrt_subtarget='armv8'; package_arch='aarch64_generic'; rust_target='aarch64-unknown-linux-musl'; pkgtype='apk'; support_tier='p0-openwrt-package' ;;
-              rill-runtime-v25.12.5-aarch64_cortex-a53.apk) openwrt_version='25.12.5'; openwrt_target='mediatek'; openwrt_subtarget='filogic'; package_arch='aarch64_cortex-a53'; rust_target='aarch64-unknown-linux-musl'; pkgtype='apk'; support_tier='p0-openwrt-package' ;;
-              *) echo "unrecognized qualified asset: $base" >&2; exit 1 ;;
-            esac
+            stem=${base#rill-runtime-v}
+            openwrt_version=${stem%%-*}
+            target_suffix=${stem#"$openwrt_version"-}
+            package_arch=${target_suffix%.*}
+            pkgtype=${base##*.}
+            target_json=$(jq -c --arg version "$openwrt_version" --arg arch "$package_arch" --arg type "$pkgtype" '.targets[] | select(.enabled == true and .openwrtVersion == $version and .packageArch == $arch and .pkgtype == $type)' metadata/openwrt-targets.json)
+            test -n "$target_json"
+            openwrt_target=$(jq -r .target <<<"$target_json")
+            openwrt_subtarget=$(jq -r .subtarget <<<"$target_json")
+            rust_target=$(jq -r .rustTarget <<<"$target_json")
+            support_tier=$(jq -r .supportTier <<<"$target_json")
             asset_json=$(jq --arg artifact "$base" --arg sha "$(sha256sum "$asset" | awk '{print $1}')" --arg openwrtVersion "$openwrt_version" --arg target "$openwrt_target" --arg subtarget "$openwrt_subtarget" --arg packageArch "$package_arch" --arg rustTarget "$rust_target" --arg pkgtype "$pkgtype" --arg supportTier "$support_tier" '. + [{artifact:$artifact,sha256:$sha,openwrtVersion:$openwrtVersion,target:$target,subtarget:$subtarget,packageArch:$packageArch,rustTarget:$rustTarget,pkgtype:$pkgtype,supportTier:$supportTier,qualificationState:"PASS",binary:"/usr/bin/rill-runtime",elfClass:"ELF64",endianness:"little",elfMachine:(if $packageArch=="x86_64" then "Advanced Micro Devices X86-64" else "AArch64" end)}]' <<<"$asset_json")
           done
           jq -n --arg commit "$GITHUB_SHA" --arg runId "$GITHUB_RUN_ID" --arg version "$version" --arg release "$release" --arg upstreamCommit "$upstream_commit" --arg archiveSha "$archive_sha" --argjson assets "$asset_json" \
