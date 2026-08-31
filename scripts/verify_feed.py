@@ -88,7 +88,9 @@ def _check_apk_repository(apk: Path, leaf: Path, public_key: Path) -> str | None
         (key_dir / public_key.name).write_bytes(public_key.read_bytes())
         repositories = root / "repositories"
         repositories.write_text(f"file://{leaf / 'packages.adb'}\n", encoding="utf-8")
-        result = _run_apk(apk, ["--root", str(root), "--usermode", "--keys-dir", str(key_dir), "--repositories-file", str(repositories), "--no-cache", "update"])
+        # apk 25.12 accepts --usermode for package transactions but rejects it
+        # for repository update; the temporary root is already user-writable.
+        result = _run_apk(apk, ["--root", str(root), "--keys-dir", str(key_dir), "--repositories-file", str(repositories), "--no-cache", "update"])
         if result.returncode:
             return result.stderr.strip() or result.stdout.strip() or "APK repository signature verification failed"
     return None
