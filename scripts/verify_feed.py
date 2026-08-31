@@ -88,6 +88,10 @@ def _check_apk_repository(apk: Path, leaf: Path, public_key: Path) -> str | None
         database = root / "lib/apk/db"
         database.mkdir(parents=True)
         (database / "installed").touch()
+        # apk treats a missing world file as a missing database layer even when
+        # the installed database is intentionally empty.  A newline is the
+        # canonical empty world used by apk's own database writer.
+        (root / "etc/apk/world").write_text("\n", encoding="utf-8")
         (key_dir / public_key.name).write_bytes(public_key.read_bytes())
         repositories = root / "repositories"
         repositories.write_text(f"file://{leaf / 'packages.adb'}\n", encoding="utf-8")
