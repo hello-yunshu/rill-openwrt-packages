@@ -175,7 +175,8 @@ key、篡改 index 或篡改 package 都必须失败。完整 feed provenance �
 run、包 commit、上游 Stable 和 Release identity。
 
 Feed 由同一 qualification run 的包构建，部署前执行目录、索引和哈希校验；
-只包含当前 6 个已验证 target，不构成对 package 更广泛 OpenWrt/Rust 架构能力的收窄。
+只包含 `metadata/openwrt-targets.json` 中当前启用且已验证的 target，不构成对
+package 更广泛 OpenWrt/Rust 架构能力的收窄。
 
 ## 目录说明
 
