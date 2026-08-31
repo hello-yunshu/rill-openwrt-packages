@@ -566,7 +566,6 @@ jobs:
           gzip -9nc "$ipk_leaf/Packages" > "$ipk_leaf/Packages.gz"
           tools/bin/usign -S -m "$ipk_leaf/Packages" -s "$work/ipk.sec" -x "$ipk_leaf/Packages.sig"
           tools/bin/usign -V -m "$ipk_leaf/Packages" -p "$work/ipk.pub" -x "$ipk_leaf/Packages.sig" -q
-          OPKG_KEY_LOG="$work/opkg-key.log" "$work/opkg-key" verify "$ipk_leaf/Packages.sig" "$ipk_leaf/Packages.gz"
 
           write_opkg_conf() {
             local root="$1" leaf="$2"
@@ -586,12 +585,16 @@ jobs:
           wrong_host_key="$host_key_dir/rill-ci-wrong-${GITHUB_RUN_ID}.pub"
           sudo mkdir -p "$host_key_dir"
           cleanup_opkg_key() {
+            if [ -f "${OPKG_KEY_LOG:-}" ]; then
+              cat "$OPKG_KEY_LOG"
+            fi
             sudo rm -f "$host_key" "$wrong_host_key"
             if [ -e "$work/opkg-key.original" ]; then
               sudo install -m 755 "$work/opkg-key.original" /usr/sbin/opkg-key
             else
               sudo rm -f /usr/sbin/opkg-key
             fi
+            rm -rf "$work"
           }
           trap cleanup_opkg_key EXIT
 
