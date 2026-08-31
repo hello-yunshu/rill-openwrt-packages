@@ -611,13 +611,19 @@ jobs:
           OPKG_CONF_DIR="$work/empty-conf" tools/bin/opkg -f "$good_root/opkg.conf" remove rill-runtime
           test ! -e "$good_root/usr/bin/rill-runtime"
 
+          expect_opkg_reject() {
+            local root="$1" reason="$2"
+            OPKG_CONF_DIR="$work/empty-conf" tools/bin/opkg -f "$root/opkg.conf" update
+            if OPKG_CONF_DIR="$work/empty-conf" tools/bin/opkg -f "$root/opkg.conf" install rill-runtime; then
+              echo "$reason unexpectedly accepted by OPKG" >&2
+              exit 1
+            fi
+          }
+
           missing_key_root="$work/missing-key-root"
           write_opkg_conf "$missing_key_root" "$ipk_leaf"
           sudo rm -f "$host_key" "$wrong_host_key"
-          if OPKG_CONF_DIR="$work/empty-conf" tools/bin/opkg -f "$missing_key_root/opkg.conf" update; then
-            echo 'missing trusted key unexpectedly accepted by OPKG' >&2
-            exit 1
-          fi
+          expect_opkg_reject "$missing_key_root" 'missing trusted key'
 
           tools/bin/usign -G -p "$work/wrong.pub" -s "$work/wrong.sec" -c 'Rill CI wrong OPKG repository key'
           wrong_key_root="$work/wrong-key-root"
@@ -625,10 +631,7 @@ jobs:
           wrong_ipk_key_id=$(tools/bin/usign -F -p "$work/wrong.pub")
           wrong_host_key="$host_key_dir/$wrong_ipk_key_id"
           sudo cp "$work/wrong.pub" "$wrong_host_key"
-          if OPKG_CONF_DIR="$work/empty-conf" tools/bin/opkg -f "$wrong_key_root/opkg.conf" update; then
-            echo 'wrong trusted key unexpectedly accepted by OPKG' >&2
-            exit 1
-          fi
+          expect_opkg_reject "$wrong_key_root" 'wrong trusted key'
 
           cp -a "$ipk_leaf" "$work/tampered-packages-leaf"
           printf 'tamper\n' >> "$work/tampered-packages-leaf/Packages"
@@ -637,10 +640,7 @@ jobs:
           write_opkg_conf "$tampered_packages_root" "$work/tampered-packages-leaf"
           sudo rm -f "$wrong_host_key"
           sudo cp "$work/ipk.pub" "$host_key"
-          if OPKG_CONF_DIR="$work/empty-conf" tools/bin/opkg -f "$tampered_packages_root/opkg.conf" update; then
-            echo 'tampered Packages unexpectedly accepted by OPKG' >&2
-            exit 1
-          fi
+          expect_opkg_reject "$tampered_packages_root" 'tampered Packages'
 
           cp -a "$ipk_leaf" "$work/tampered-gzip-leaf"
           python3 - "$work/tampered-gzip-leaf/Packages.gz" <<'PY'
@@ -654,7 +654,4 @@ jobs:
           PY
           tampered_gzip_root="$work/tampered-gzip-root"
           write_opkg_conf "$tampered_gzip_root" "$work/tampered-gzip-leaf"
-          if OPKG_CONF_DIR="$work/empty-conf" tools/bin/opkg -f "$tampered_gzip_root/opkg.conf" update; then
-            echo 'tampered Packages.gz unexpectedly accepted by OPKG' >&2
-            exit 1
-          fi
+          expect_opkg_reject "$tampered_gzip_root" 'tampered Packages.gz'
