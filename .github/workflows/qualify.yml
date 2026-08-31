@@ -522,15 +522,18 @@ jobs:
           tools/bin/usign -G -p "$work/ipk.pub" -s "$work/ipk.sec" -c 'Rill CI ephemeral OPKG repository key'
           cat > "$work/opkg-key" <<'EOF'
           #!/bin/sh
-          set -e
+          set -eu
           printf 'opkg-key args: %s %s %s\n' "$1" "${2:-}" "${3:-}" >> "${OPKG_KEY_LOG:?}"
           [ "$1" = verify ]
           shift
           sigfile="$1"
           msgfile="$2"
-          (
-            zcat "$msgfile" 2>/dev/null || cat "$msgfile"
-          ) | "$GITHUB_WORKSPACE/tools/bin/usign" -V -P /etc/opkg/keys -q -x "$sigfile" -m -
+          printf 'opkg-key message: %s %s\n' "$(file -b "$msgfile")" "$(sha256sum "$msgfile" | awk '{print $1}')" >> "$OPKG_KEY_LOG"
+          if gzip -t "$msgfile" 2>/dev/null; then
+            gzip -dc "$msgfile"
+          else
+            cat "$msgfile"
+          fi | "$GITHUB_WORKSPACE/tools/bin/usign" -V -P /etc/opkg/keys -x "$sigfile" -m -
           EOF
           chmod 755 "$work/opkg-key"
           export OPKG_KEY_LOG="$work/opkg-key.log"
