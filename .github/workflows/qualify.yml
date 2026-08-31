@@ -519,6 +519,7 @@ jobs:
           trap 'rm -rf "$work"' EXIT
           ipk_leaf=$(realpath "$(find ipk-feed -type d -name x86_64 -print -quit)")
           test -n "$ipk_leaf"
+          tools/bin/usign -G -p "$work/ipk.pub" -s "$work/ipk.sec" -c 'Rill CI ephemeral OPKG repository key'
           mkdir -p "$work/libc-control" "$work/libc-data"
           printf '2.0\n' > "$work/debian-binary"
           cat > "$work/libc-control/control" <<'EOF'
@@ -544,15 +545,71 @@ jobs:
             printf 'Description: OpenWrt libc base-package test fixture\n'
           } >> "$ipk_leaf/Packages"
           gzip -9nc "$ipk_leaf/Packages" > "$ipk_leaf/Packages.gz"
-          mkdir -p "$work/opkg-root/etc/opkg" "$work/opkg-root/var/lib/opkg" "$work/opkg-root/tmp"
-          cat > "$work/opkg.conf" <<EOF
+          tools/bin/usign -S -m "$ipk_leaf/Packages" -s "$work/ipk.sec" -x "$ipk_leaf/Packages.sig"
+          tools/bin/usign -V -m "$ipk_leaf/Packages" -p "$work/ipk.pub" -x "$ipk_leaf/Packages.sig" -q
+
+          write_opkg_conf() {
+            local root="$1" leaf="$2"
+            mkdir -p "$root/etc/opkg/keys" "$root/var/lib/opkg" "$root/tmp"
+            cat > "$root/opkg.conf" <<EOF
+          option check_signature
           arch all 1
           arch x86_64 10
-          lists_dir ext $work/opkg-root/var/lib/opkg
-          src/gz rill file://$ipk_leaf
+          lists_dir ext $root/var/lib/opkg
+          src/gz rill file://$leaf
           EOF
-          tools/bin/opkg -f "$work/opkg.conf" -o "$work/opkg-root" update
-          tools/bin/opkg -f "$work/opkg.conf" -o "$work/opkg-root" install rill-runtime
-          test -x "$work/opkg-root/usr/bin/rill-runtime"
-          tools/bin/opkg -f "$work/opkg.conf" -o "$work/opkg-root" remove rill-runtime
-          test ! -e "$work/opkg-root/usr/bin/rill-runtime"
+          }
+
+          good_root="$work/good-root"
+          write_opkg_conf "$good_root" "$ipk_leaf"
+          cp "$work/ipk.pub" "$good_root/etc/opkg/keys/rill-ci.pub"
+          tools/bin/opkg -f "$good_root/opkg.conf" -o "$good_root" update
+          tools/bin/opkg -f "$good_root/opkg.conf" -o "$good_root" install rill-runtime
+          test -x "$good_root/usr/bin/rill-runtime"
+          tools/bin/opkg -f "$good_root/opkg.conf" -o "$good_root" remove rill-runtime
+          test ! -e "$good_root/usr/bin/rill-runtime"
+
+          missing_key_root="$work/missing-key-root"
+          write_opkg_conf "$missing_key_root" "$ipk_leaf"
+          if tools/bin/opkg -f "$missing_key_root/opkg.conf" -o "$missing_key_root" update; then
+            echo 'missing trusted key unexpectedly accepted by OPKG' >&2
+            exit 1
+          fi
+
+          tools/bin/usign -G -p "$work/wrong.pub" -s "$work/wrong.sec" -c 'Rill CI wrong OPKG repository key'
+          wrong_key_root="$work/wrong-key-root"
+          write_opkg_conf "$wrong_key_root" "$ipk_leaf"
+          cp "$work/wrong.pub" "$wrong_key_root/etc/opkg/keys/wrong.pub"
+          if tools/bin/opkg -f "$wrong_key_root/opkg.conf" -o "$wrong_key_root" update; then
+            echo 'wrong trusted key unexpectedly accepted by OPKG' >&2
+            exit 1
+          fi
+
+          cp -a "$ipk_leaf" "$work/tampered-packages-leaf"
+          printf 'tamper\n' >> "$work/tampered-packages-leaf/Packages"
+          gzip -9nc "$work/tampered-packages-leaf/Packages" > "$work/tampered-packages-leaf/Packages.gz"
+          tampered_packages_root="$work/tampered-packages-root"
+          write_opkg_conf "$tampered_packages_root" "$work/tampered-packages-leaf"
+          cp "$work/ipk.pub" "$tampered_packages_root/etc/opkg/keys/rill-ci.pub"
+          if tools/bin/opkg -f "$tampered_packages_root/opkg.conf" -o "$tampered_packages_root" update; then
+            echo 'tampered Packages unexpectedly accepted by OPKG' >&2
+            exit 1
+          fi
+
+          cp -a "$ipk_leaf" "$work/tampered-gzip-leaf"
+          python3 - "$work/tampered-gzip-leaf/Packages.gz" <<'PY'
+          from pathlib import Path
+          import sys
+
+          path = Path(sys.argv[1])
+          data = bytearray(path.read_bytes())
+          data[len(data) // 2] ^= 1
+          path.write_bytes(data)
+          PY
+          tampered_gzip_root="$work/tampered-gzip-root"
+          write_opkg_conf "$tampered_gzip_root" "$work/tampered-gzip-leaf"
+          cp "$work/ipk.pub" "$tampered_gzip_root/etc/opkg/keys/rill-ci.pub"
+          if tools/bin/opkg -f "$tampered_gzip_root/opkg.conf" -o "$tampered_gzip_root" update; then
+            echo 'tampered Packages.gz unexpectedly accepted by OPKG' >&2
+            exit 1
+          fi

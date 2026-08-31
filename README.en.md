@@ -78,10 +78,9 @@ The same qualified package artifacts are published as a directory-layout feed:
 
 The feed uses native OpenWrt signing formats: `Packages.sig` with `usign` for
 24.10 and an apk-tools v3 EC repository key inside `packages.adb` for 25.12.
-The implementation, negative tests, and fail-closed gates are ready. Production
-key provisioning by the repository owner is still required before Pages will
-publish a `channel=production` feed. Without the keys, the workflow produces
-development verification only and does not deploy an unsigned production feed.
+Production signing is enabled. Current trust-root fingerprints are documented in
+`keys/README.md`; unsigned or development output is never promoted as a
+production feed.
 
 Example OpenWrt 24.10 configuration:
 

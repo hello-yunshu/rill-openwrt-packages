@@ -79,7 +79,8 @@ APK 示例：
 
     apk add rill-runtime
 
-生成的 IPK 文件名形如 `rill-runtime_1.5.6-1_x86_64.ipk`；但生产安装应通过
+生成的 IPK 文件名形如 `rill-runtime_1.5.6-1_x86_64.ipk`；Release 资产则使用
+目标限定名，例如 `rill-runtime-v24.10.8-x86_64.ipk`。生产安装应通过
 已签名 feed 的包名解析，而不是绕过索引安装本地文件。安装后可检查：
 
     /usr/bin/rill-runtime --version
@@ -155,10 +156,9 @@ Rust target 编译结果，并通过 OpenWrt jobserver 以 <code>-j4</code> 运�
 OpenWrt 24.10 IPK 可将对应目录加入 customfeeds.conf 后运行 opkg update；
 OpenWrt 25.12 APK 可将对应目录加入 APK repositories 后运行 apk update。
 Feed 采用 OpenWrt 原生签名格式：24.10 的 `Packages.sig` 使用 `usign`，25.12
-的 `packages.adb` 使用 apk-tools v3 的 EC repository key。当前代码、负向测试和
-fail-closed gate 已就绪；生产 key provisioning 仍需仓库所有者完成后，Pages 才会
-发布 `channel=production` feed。没有 key 时只生成 development 验证结果，不会把
-unsigned feed 部署到生产 Pages。
+的 `packages.adb` 使用 apk-tools v3 的 EC repository key。Production signing
+已启用；当前 trust-root fingerprint 位于 `keys/README.md`，unsigned 或
+development output 永远不会被提升为 production feed。
 
 生产使用时先人工核对 Pages 根目录 `keys/` 下对应公钥的 fingerprint，再配置：
 
@@ -191,10 +191,13 @@ Feed 由同一 qualification run 的包构建，部署前执行目录、索引�
     scripts/verify_feed.py         feed layout, semantic index and signature verifier
     scripts/build_feed_manifest.py durable feed provenance generator
     scripts/sign_feed.py            exact qualified-byte signing helper
+    scripts/release_identity.py     immutable Release identity comparator
     keys/README.md                  key lifecycle and provisioning contract
     .github/workflows/qualify.yml    IPK/APK qualification and evidence
     .github/workflows/release.yml    exact-run Release promotion
     .github/workflows/feed.yml       GitHub Pages feed publication
+    .github/workflows/repository-contract.yml
+                                      lightweight repository contract checks
     .github/workflows/sync-rill-version.yml
                                       scheduled/manual Stable drift PR
 
