@@ -39,12 +39,9 @@ Release”作为运行时身份。
 
 ## OpenWrt Qualification 矩阵
 
-GitHub Actions 的 canonical qualification workflow 当前覆盖以下组合：
-
-| OpenWrt SDK | 架构 | 包格式 |
-| --- | --- | --- |
-| <code>24.10.8</code> | <code>x86_64</code> / <code>aarch64_generic</code> / <code>aarch64_cortex-a53</code> | IPK |
-| <code>25.12.5</code> | <code>x86_64</code> / <code>aarch64_generic</code> / <code>aarch64_cortex-a53</code> | APK |
+GitHub Actions 的 canonical qualification workflow 从
+[`metadata/openwrt-targets.json`](metadata/openwrt-targets.json) 生成矩阵；该文件是
+OpenWrt Runtime target、package arch、package format 和 Rust target 的唯一事实来源。
 
 这张表只描述仓库实际执行过的 qualification 矩阵。其他架构、其他 OpenWrt
 版本和真实设备必须单独构建、安装、运行并保存证据；当前矩阵只证明
