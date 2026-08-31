@@ -98,7 +98,7 @@ jobs:
             echo "publish=true"
           } >> "$GITHUB_OUTPUT"
       - name: Publish immutable package release
-        if: ${{ steps.release.outputs.publish == 'true' && secrets.RILL_CONSUMER_DISPATCH_TOKEN != '' }}
+        if: ${{ steps.release.outputs.publish == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release.outputs.tag }}
@@ -112,19 +112,3 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "rill-runtime $TAG" \
             --notes "Promoted from exact OpenWrt qualification run ${RUN_ID} for package ${VERSION}-${RELEASE}. Assets and qualification.json are from that same successful run; no release rebuild was performed."
-      - name: Notify Runtime consumers after qualified release
-        if: ${{ steps.release.outputs.publish == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.RILL_CONSUMER_DISPATCH_TOKEN }}
-          VERSION: ${{ steps.release.outputs.version }}
-          RELEASE: ${{ steps.release.outputs.release }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -n "$GH_TOKEN"
-          for repository in hello-yunshu/luci-app-performance-manager hello-yunshu/luci-app-cloudflare-ip; do
-            gh api "repos/${repository}/dispatches" \
-              -f event_type=rill-runtime-qualified \
-              -f "client_payload[version]=$VERSION" \
-              -f "client_payload[release]=$RELEASE"
-          done
