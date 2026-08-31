@@ -85,6 +85,7 @@ def _check_apk_repository(apk: Path, leaf: Path, public_key: Path) -> str | None
         root = Path(temporary)
         key_dir = root / "etc/apk/keys"
         key_dir.mkdir(parents=True)
+        (root / "lib/apk/db").mkdir(parents=True)
         (key_dir / public_key.name).write_bytes(public_key.read_bytes())
         repositories = root / "repositories"
         repositories.write_text(f"file://{leaf / 'packages.adb'}\n", encoding="utf-8")
