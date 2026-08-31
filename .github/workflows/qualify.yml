@@ -523,15 +523,17 @@ jobs:
           cat > "$work/opkg-key" <<'EOF'
           #!/bin/sh
           set -e
+          printf 'opkg-key args: %s %s %s\n' "$1" "${2:-}" "${3:-}" >> "${OPKG_KEY_LOG:?}"
           [ "$1" = verify ]
           shift
           sigfile="$1"
           msgfile="$2"
           (
             zcat "$msgfile" 2>/dev/null || cat "$msgfile"
-          ) | usign -V -P /etc/opkg/keys -q -x "$sigfile" -m -
+          ) | "$GITHUB_WORKSPACE/tools/bin/usign" -V -P /etc/opkg/keys -q -x "$sigfile" -m -
           EOF
           chmod 755 "$work/opkg-key"
+          export OPKG_KEY_LOG="$work/opkg-key.log"
           if [ -e /usr/sbin/opkg-key ]; then
             sudo cp -a /usr/sbin/opkg-key "$work/opkg-key.original"
           fi
@@ -564,6 +566,7 @@ jobs:
           gzip -9nc "$ipk_leaf/Packages" > "$ipk_leaf/Packages.gz"
           tools/bin/usign -S -m "$ipk_leaf/Packages" -s "$work/ipk.sec" -x "$ipk_leaf/Packages.sig"
           tools/bin/usign -V -m "$ipk_leaf/Packages" -p "$work/ipk.pub" -x "$ipk_leaf/Packages.sig" -q
+          OPKG_KEY_LOG="$work/opkg-key.log" "$work/opkg-key" verify "$ipk_leaf/Packages.sig" "$ipk_leaf/Packages.gz"
 
           write_opkg_conf() {
             local root="$1" leaf="$2"
