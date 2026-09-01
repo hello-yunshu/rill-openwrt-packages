@@ -17,7 +17,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 包名 | <code>rill-runtime</code> |
+| Stable 包名 | <code>rill-runtime</code> |
 | 安装路径 | <code>/usr/bin/rill-runtime</code> |
 | 上游来源 | RillML 已发布的 Stable tag archive |
 | 当前来源版本 | <code>v1.5.6</code> |
@@ -25,6 +25,11 @@
 | 包许可证 | MIT |
 | 包维护者 | Rill OpenWrt Packages maintainers |
 | 分发 Release | [rill-runtime releases](https://github.com/hello-yunshu/rill-openwrt-packages/releases) |
+
+Cloudflare IP 的 Preview consumer 使用同一仓库中的独立
+<code>rill-runtime-preview</code> 包。它固定到 metadata 中的 exact upstream
+commit，使用同样的安装路径，但不与 Stable 包同时安装；qualification workflow
+会构建并检查每个注册目标的 Preview artifact，消费者集成直接执行解包后的二进制。
 
 它只分发通用 Runtime 可执行文件，不把 OpenWrt 产品逻辑塞进 Rill：
 

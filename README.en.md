@@ -10,10 +10,16 @@ short English overview.
 
 ## Scope
 
-The canonical package is <code>rill-runtime</code>. It is built from an immutable,
+The canonical Stable package is <code>rill-runtime</code>. It is built from an immutable,
 published RillML Stable archive and installs only:
 
     /usr/bin/rill-runtime
+
+Cloudflare IP's Preview consumer uses the separately named
+<code>rill-runtime-preview</code> package in this same repository. It is pinned
+to the exact upstream commit in its metadata, installs the same binary path,
+conflicts with Stable, and is built and checked for every registered target.
+Consumer integration executes the binary extracted from that Preview artifact.
 
 It does not install <code>rill-pack</code>, UCI/ubus/procd integration, product
 configuration, firewall helpers, or host-mutation logic. Those responsibilities
