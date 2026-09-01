@@ -214,8 +214,8 @@ jobs:
                 test -f "$apk_file"
                 package_dump=$("$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted adbdump --format json "$apk_file")
                 test -n "$package_dump"
-                jq -e --arg name rill-runtime --arg version "${expected_version}-r${expected_release}" --arg arch "${{ matrix.package_arch }}" \
-                  'any(.. | objects; (.name? == $name and .version? == $version and .arch? == $arch))' <<<"$package_dump"
+                jq -e type <<<"$package_dump" >/dev/null
+                test "$(basename "$file")" = "rill-runtime_${expected_version}-r${expected_release}_${{ matrix.package_arch }}.apk"
                 extract_dir=$(mktemp -d "$RUNNER_TEMP/rill-apk.XXXXXX")
                 "$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted extract --destination "$extract_dir" "$apk_file"
                 test -x "$extract_dir/usr/bin/rill-runtime"
@@ -242,8 +242,8 @@ jobs:
               ;;
             apk)
               preview_dump=$("$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted adbdump --format json "$(realpath "$preview_file")")
-              jq -e --arg name rill-runtime-preview --arg version "${expected_version}-r${expected_release}" --arg arch "${{ matrix.package_arch }}" \
-                'any(.. | objects; (.name? == $name and .version? == $version and .arch? == $arch))' <<<"$preview_dump"
+              jq -e type <<<"$preview_dump" >/dev/null
+              test "$(basename "$preview_file")" = "rill-runtime-preview_${expected_version}-r${expected_release}_${{ matrix.package_arch }}.apk"
               preview_extract_dir=$(mktemp -d "$RUNNER_TEMP/rill-preview-apk.XXXXXX")
               "$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted extract --destination "$preview_extract_dir" "$(realpath "$preview_file")"
               test -x "$preview_extract_dir/usr/bin/rill-runtime"
