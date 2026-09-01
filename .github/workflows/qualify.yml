@@ -372,12 +372,12 @@ jobs:
     needs: [package]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           pattern: rill-runtime-preview-*
           path: preview-artifacts
           merge-multiple: true
-      - uses: actions/checkout@v7
       - name: Require one exact Preview package for every registered target
         shell: bash
         env:
