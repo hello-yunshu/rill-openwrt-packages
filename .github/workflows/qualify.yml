@@ -255,6 +255,7 @@ jobs:
               rm -rf "$preview_extract_dir"
               ;;
           esac
+          true
       - name: Export package artifacts
         shell: bash
         run: |
