@@ -180,7 +180,7 @@ jobs:
               *) tar -xf "$archive" -C "$destination" ;;
             esac
           }
-          printf '%s\n' "$files" | while IFS= read -r file; do
+          while IFS= read -r file; do
             case "${file##*.}" in
               ipk)
                 package_dir=$(mktemp -d "$RUNNER_TEMP/rill-ipk.XXXXXX")
@@ -227,7 +227,7 @@ jobs:
                 rm -rf "$extract_dir"
                 ;;
           esac
-          done
+          done <<< "$files"
           case "${{ matrix.pkgtype }}" in
             ipk)
               preview_dir=$(mktemp -d "$RUNNER_TEMP/rill-preview-ipk.XXXXXX")
