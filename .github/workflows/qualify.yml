@@ -160,9 +160,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          trap 'rc=$?; echo "payload inspection failed: rc=$rc line=$LINENO command=$BASH_COMMAND" >&2; exit "$rc"' ERR
           cd "$SDKDIR"
-          files=$(find bin -type f -name "rill-runtime_[0-9]*.${{ matrix.pkgtype }}")
+          files=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}" ! -name "rill-runtime-preview*.${{ matrix.pkgtype }}")
           test -n "$files"
           preview_file=$(find bin -type f -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
           test -n "$preview_file"
@@ -217,7 +216,7 @@ jobs:
                 package_dump=$("$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted adbdump --format json "$apk_file")
                 test -n "$package_dump"
                 jq -e type <<<"$package_dump" >/dev/null
-                test "$(basename "$file")" = "rill-runtime_${expected_version}-r${expected_release}_${{ matrix.package_arch }}.apk"
+                test "$(basename "$file")" = "rill-runtime-${expected_version}-r${expected_release}_${{ matrix.package_arch }}.apk"
                 extract_dir=$(mktemp -d "$RUNNER_TEMP/rill-apk.XXXXXX")
                 "$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted extract --destination "$extract_dir" "$apk_file"
                 test -x "$extract_dir/usr/bin/rill-runtime"
@@ -245,7 +244,7 @@ jobs:
             apk)
               preview_dump=$("$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted adbdump --format json "$(realpath "$preview_file")")
               jq -e type <<<"$preview_dump" >/dev/null
-              test "$(basename "$preview_file")" = "rill-runtime-preview_${expected_version}-r${preview_release}_${{ matrix.package_arch }}.apk"
+              test "$(basename "$preview_file")" = "rill-runtime-preview-${expected_version}-r${preview_release}_${{ matrix.package_arch }}.apk"
               preview_extract_dir=$(mktemp -d "$RUNNER_TEMP/rill-preview-apk.XXXXXX")
               "$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted extract --destination "$preview_extract_dir" "$(realpath "$preview_file")"
               test -x "$preview_extract_dir/usr/bin/rill-runtime"
@@ -256,13 +255,12 @@ jobs:
               rm -rf "$preview_extract_dir"
               ;;
           esac
-          true
       - name: Export package artifacts
         shell: bash
         run: |
           set -euo pipefail
           cd "$SDKDIR"
-          stable_file=$(find bin -type f -name "rill-runtime_[0-9]*.${{ matrix.pkgtype }}" -print -quit)
+          stable_file=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}" ! -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
           preview_file=$(find bin -type f -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
           test -n "$stable_file"
           test -n "$preview_file"
@@ -274,7 +272,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$SDKDIR"
-          package=$(find bin -type f -name "rill-runtime_[0-9]*.${{ matrix.pkgtype }}" -print -quit)
+          package=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}" ! -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
           test -n "$package"
           feed_dir="$GITHUB_WORKSPACE/feed/${{ matrix.release_version }}/${{ matrix.openwrt_target }}/${{ matrix.openwrt_subtarget }}/${{ matrix.package_arch }}"
           mkdir -p "$feed_dir"
