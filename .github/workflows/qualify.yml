@@ -212,24 +212,20 @@ jobs:
                 test -x "$SDKDIR/staging_dir/host/bin/apk"
                 apk_file=$(realpath "$file")
                 test -f "$apk_file"
-                package_dump=$("$SDKDIR/staging_dir/host/bin/apk" adbdump --format yaml "$apk_file")
+                package_dump=$("$SDKDIR/staging_dir/host/bin/apk" adbdump --format json "$apk_file")
                 test -n "$package_dump"
-                info_dump=$(awk '/^info:/{found=1} found && /^paths:/{exit} found {print}' <<<"$package_dump")
-                paths_dump=$(awk '/^paths:/{found=1} found {print}' <<<"$package_dump")
-                grep -Eq '^[[:space:]]+name: rill-runtime$' <<<"$info_dump"
-                grep -Eq "^[[:space:]]+version: ${expected_version}-r${expected_release}$" <<<"$info_dump"
-                grep -Eq '^[[:space:]]+arch: ${{ matrix.package_arch }}$' <<<"$info_dump"
-                grep -Eq '^[[:space:]]+- name: usr/bin$' <<<"$paths_dump"
-                grep -Eq '^[[:space:]]+- name: rill-runtime$' <<<"$paths_dump"
-                ! grep -Eq '^[[:space:]]+- name: rill-pack($|/)' <<<"$paths_dump"
+                jq -e --arg name rill-runtime --arg version "${expected_version}-r${expected_release}" --arg arch "${{ matrix.package_arch }}" \
+                  'any(.. | objects; (.name? == $name and .version? == $version and .arch? == $arch))' <<<"$package_dump"
                 extract_dir=$(mktemp -d "$RUNNER_TEMP/rill-apk.XXXXXX")
                 "$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted extract --destination "$extract_dir" "$apk_file"
+                test -x "$extract_dir/usr/bin/rill-runtime"
+                ! find "$extract_dir" -type f -o -type l | sed "s#^$extract_dir/##; s#^\./##" | grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/'
                 readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F 'Class:                             ELF64'
                 readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F "Data:                              2's complement, little endian"
                 readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F 'Machine:                           ${{ matrix.elf_machine }}'
                 rm -rf "$extract_dir"
                 ;;
-            esac
+          esac
           done
           case "${{ matrix.pkgtype }}" in
             ipk)
@@ -245,9 +241,17 @@ jobs:
               rm -rf "$preview_dir"
               ;;
             apk)
-              preview_dump=$("$SDKDIR/staging_dir/host/bin/apk" adbdump --format yaml "$(realpath "$preview_file")")
-              grep -Eq '^[[:space:]]+name: rill-runtime-preview$' <<<"$preview_dump"
-              grep -Eq '^[[:space:]]+- name: rill-runtime$' <<<"$preview_dump"
+              preview_dump=$("$SDKDIR/staging_dir/host/bin/apk" adbdump --format json "$(realpath "$preview_file")")
+              jq -e --arg name rill-runtime-preview --arg version "${expected_version}-r${expected_release}" --arg arch "${{ matrix.package_arch }}" \
+                'any(.. | objects; (.name? == $name and .version? == $version and .arch? == $arch))' <<<"$preview_dump"
+              preview_extract_dir=$(mktemp -d "$RUNNER_TEMP/rill-preview-apk.XXXXXX")
+              "$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted extract --destination "$preview_extract_dir" "$(realpath "$preview_file")"
+              test -x "$preview_extract_dir/usr/bin/rill-runtime"
+              ! find "$preview_extract_dir" -type f -o -type l | sed "s#^$preview_extract_dir/##; s#^\./##" | grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/'
+              readelf -h "$preview_extract_dir/usr/bin/rill-runtime" | grep -F 'Class:                             ELF64'
+              readelf -h "$preview_extract_dir/usr/bin/rill-runtime" | grep -F "Data:                              2's complement, little endian"
+              readelf -h "$preview_extract_dir/usr/bin/rill-runtime" | grep -F 'Machine:                           ${{ matrix.elf_machine }}'
+              rm -rf "$preview_extract_dir"
               ;;
           esac
           mkdir -p "$GITHUB_WORKSPACE/output"
