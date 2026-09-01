@@ -262,8 +262,10 @@ jobs:
             cp "$file" "$GITHUB_WORKSPACE/output/$release_file"
           done
           cp "$preview_file" "$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
-          (cd "$GITHUB_WORKSPACE/preview-output" && sha256sum -- ./* | sed 's#^\./##') > "$GITHUB_WORKSPACE/preview-output/SHA256SUMS"
-          (cd "$GITHUB_WORKSPACE/output" && sha256sum -- ./* | sed 's#^\./##') > "$GITHUB_WORKSPACE/output/SHA256SUMS"
+          preview_export="$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
+          stable_export="$GITHUB_WORKSPACE/output/rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
+          sha256sum "$preview_export" | sed "s#  $GITHUB_WORKSPACE/preview-output/##" > "$GITHUB_WORKSPACE/preview-output/SHA256SUMS"
+          sha256sum "$stable_export" | sed "s#  $GITHUB_WORKSPACE/output/##" > "$GITHUB_WORKSPACE/output/SHA256SUMS"
       - name: Generate per-target OpenWrt feed index
         shell: bash
         run: |
