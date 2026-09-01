@@ -167,6 +167,7 @@ jobs:
           test -n "$preview_file"
           expected_version=$(sed -n 's/^PKG_VERSION:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")
           expected_release=$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")
+          preview_release=$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime-preview/Makefile")
           extract_tar_member_archive() {
             local archive="$1" destination="$2"
             mkdir -p "$destination"
@@ -243,7 +244,7 @@ jobs:
             apk)
               preview_dump=$("$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted adbdump --format json "$(realpath "$preview_file")")
               jq -e type <<<"$preview_dump" >/dev/null
-              test "$(basename "$preview_file")" = "rill-runtime-preview_${expected_version}-r${expected_release}_${{ matrix.package_arch }}.apk"
+              test "$(basename "$preview_file")" = "rill-runtime-preview_${expected_version}-r${preview_release}_${{ matrix.package_arch }}.apk"
               preview_extract_dir=$(mktemp -d "$RUNNER_TEMP/rill-preview-apk.XXXXXX")
               "$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted extract --destination "$preview_extract_dir" "$(realpath "$preview_file")"
               test -x "$preview_extract_dir/usr/bin/rill-runtime"
