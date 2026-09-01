@@ -262,12 +262,6 @@ jobs:
             cp "$file" "$GITHUB_WORKSPACE/output/$release_file"
           done
           cp "$preview_file" "$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
-          preview_export="$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
-          stable_export="$GITHUB_WORKSPACE/output/rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
-          test -r "$preview_export"
-          test -r "$stable_export"
-          python3 -c 'import hashlib, pathlib, sys; p=pathlib.Path(sys.argv[1]); h=hashlib.sha256(); f=p.open("rb"); [h.update(chunk) for chunk in iter(lambda: f.read(1048576), b"")]; f.close(); print(f"{h.hexdigest()}  {p.name}")' "$preview_export" > "$GITHUB_WORKSPACE/preview-output/SHA256SUMS"
-          python3 -c 'import hashlib, pathlib, sys; p=pathlib.Path(sys.argv[1]); h=hashlib.sha256(); f=p.open("rb"); [h.update(chunk) for chunk in iter(lambda: f.read(1048576), b"")]; f.close(); print(f"{h.hexdigest()}  {p.name}")' "$stable_export" > "$GITHUB_WORKSPACE/output/SHA256SUMS"
       - name: Generate per-target OpenWrt feed index
         shell: bash
         run: |
