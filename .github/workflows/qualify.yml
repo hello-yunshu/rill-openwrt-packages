@@ -266,8 +266,8 @@ jobs:
           stable_export="$GITHUB_WORKSPACE/output/rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
           test -r "$preview_export"
           test -r "$stable_export"
-          (cd "$GITHUB_WORKSPACE/preview-output" && sha256sum "$(basename "$preview_export")") > "$GITHUB_WORKSPACE/preview-output/SHA256SUMS"
-          (cd "$GITHUB_WORKSPACE/output" && sha256sum "$(basename "$stable_export")") > "$GITHUB_WORKSPACE/output/SHA256SUMS"
+          (cd "$GITHUB_WORKSPACE/preview-output" && openssl dgst -sha256 -r "$(basename "$preview_export")") > "$GITHUB_WORKSPACE/preview-output/SHA256SUMS"
+          (cd "$GITHUB_WORKSPACE/output" && openssl dgst -sha256 -r "$(basename "$stable_export")") > "$GITHUB_WORKSPACE/output/SHA256SUMS"
       - name: Generate per-target OpenWrt feed index
         shell: bash
         run: |
