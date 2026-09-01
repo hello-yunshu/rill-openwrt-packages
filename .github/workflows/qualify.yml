@@ -377,6 +377,7 @@ jobs:
           pattern: rill-runtime-preview-*
           path: preview-artifacts
           merge-multiple: true
+      - uses: actions/checkout@v7
       - name: Require one exact Preview package for every registered target
         shell: bash
         env:
