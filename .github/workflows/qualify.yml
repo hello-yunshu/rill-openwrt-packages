@@ -160,6 +160,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          trap 'rc=$?; echo "payload inspection failed: rc=$rc line=$LINENO command=$BASH_COMMAND" >&2; exit "$rc"' ERR
           cd "$SDKDIR"
           files=$(find bin -type f -name "rill-runtime_[0-9]*.${{ matrix.pkgtype }}")
           test -n "$files"
