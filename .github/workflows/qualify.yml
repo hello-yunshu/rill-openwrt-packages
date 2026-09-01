@@ -257,7 +257,7 @@ jobs:
           esac
           mkdir -p "$GITHUB_WORKSPACE/output"
           mkdir -p "$GITHUB_WORKSPACE/preview-output"
-          printf '%s\n' "$files" | while IFS= read -r file; do
+          while IFS= read -r file; do
             release_file="rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
             cp -v "$file" "$GITHUB_WORKSPACE/output/$release_file" || {
               rc=$?
@@ -266,7 +266,7 @@ jobs:
               ls -la "$(dirname "$file")" "$GITHUB_WORKSPACE/output" || true
               exit "$rc"
             }
-          done
+          done <<< "$files"
           preview_export="$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
           cp -v "$preview_file" "$preview_export" || {
             rc=$?
