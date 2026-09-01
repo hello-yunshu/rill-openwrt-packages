@@ -255,26 +255,18 @@ jobs:
               rm -rf "$preview_extract_dir"
               ;;
           esac
-          mkdir -p "$GITHUB_WORKSPACE/output"
-          mkdir -p "$GITHUB_WORKSPACE/preview-output"
-          while IFS= read -r file; do
-            release_file="rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
-            cp -v "$file" "$GITHUB_WORKSPACE/output/$release_file" || {
-              rc=$?
-              echo "stable package export failed: source=$file destination=$GITHUB_WORKSPACE/output/$release_file"
-              df -h "$GITHUB_WORKSPACE" || true
-              ls -la "$(dirname "$file")" "$GITHUB_WORKSPACE/output" || true
-              exit "$rc"
-            }
-          done <<< "$files"
-          preview_export="$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
-          cp -v "$preview_file" "$preview_export" || {
-            rc=$?
-            echo "preview package export failed: source=$preview_file destination=$preview_export"
-            df -h "$GITHUB_WORKSPACE" || true
-            ls -la "$(dirname "$preview_file")" "$GITHUB_WORKSPACE/preview-output" || true
-            exit "$rc"
-          }
+      - name: Export package artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$SDKDIR"
+          stable_file=$(find bin -type f -name "rill-runtime_[0-9]*.${{ matrix.pkgtype }}" -print -quit)
+          preview_file=$(find bin -type f -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
+          test -n "$stable_file"
+          test -n "$preview_file"
+          mkdir -p "$GITHUB_WORKSPACE/output" "$GITHUB_WORKSPACE/preview-output"
+          cp "$stable_file" "$GITHUB_WORKSPACE/output/rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
+          cp "$preview_file" "$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
       - name: Generate per-target OpenWrt feed index
         shell: bash
         run: |
