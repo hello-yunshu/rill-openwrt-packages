@@ -107,7 +107,7 @@ jobs:
             ${{ runner.temp }}/rustup
             ${{ runner.temp }}/cargo
             ${{ env.SDKDIR }}/build_dir/target-*/rill-ml-*/target
-          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('package/rill-runtime/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
+          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('package/rill-runtime/Makefile', 'package/rill-runtime-preview/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
           restore-keys: |
             rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-
       - name: Prepare SDK and build package
@@ -119,7 +119,10 @@ jobs:
           ./scripts/feeds install rust
           mkdir -p package/rill-runtime
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime/." package/rill-runtime/
+          mkdir -p package/rill-runtime-preview
+          cp -a "$GITHUB_WORKSPACE/package/rill-runtime-preview/." package/rill-runtime-preview/
           echo 'CONFIG_PACKAGE_rill-runtime=y' >> .config
+          echo 'CONFIG_PACKAGE_rill-runtime-preview=y' >> .config
           make defconfig
           staging_dir=$(make -s val.STAGING_DIR)
           test -n "$staging_dir"
@@ -135,7 +138,7 @@ jobs:
           unset CI
           target=package/rill-runtime/compile
           jobs="$(($(nproc)+1))"
-          if make -j"$jobs" "$target"; then
+          if make -j"$jobs" "$target" && make -j"$jobs" package/rill-runtime-preview/compile; then
             exit 0
           else
             fast_rc=$?
@@ -158,8 +161,10 @@ jobs:
         run: |
           set -euo pipefail
           cd "$SDKDIR"
-          files=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}")
+          files=$(find bin -type f -name "rill-runtime_[0-9]*.${{ matrix.pkgtype }}")
           test -n "$files"
+          preview_file=$(find bin -type f -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
+          test -n "$preview_file"
           expected_version=$(sed -n 's/^PKG_VERSION:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")
           expected_release=$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")
           extract_tar_member_archive() {
@@ -226,18 +231,40 @@ jobs:
                 ;;
             esac
           done
+          case "${{ matrix.pkgtype }}" in
+            ipk)
+              preview_dir=$(mktemp -d "$RUNNER_TEMP/rill-preview-ipk.XXXXXX")
+              tar -xf "$preview_file" -C "$preview_dir"
+              preview_control=$(find "$preview_dir" -maxdepth 1 -name 'control.tar.*' -print -quit)
+              preview_data=$(find "$preview_dir" -maxdepth 1 -name 'data.tar.*' -print -quit)
+              test -n "$preview_control"; test -n "$preview_data"
+              extract_tar_member_archive "$preview_control" "$preview_dir/control"
+              extract_tar_member_archive "$preview_data" "$preview_dir/data"
+              grep -Fx 'Package: rill-runtime-preview' "$preview_dir/control/control"
+              test -x "$preview_dir/data/usr/bin/rill-runtime"
+              rm -rf "$preview_dir"
+              ;;
+            apk)
+              preview_dump=$("$SDKDIR/staging_dir/host/bin/apk" adbdump --format yaml "$(realpath "$preview_file")")
+              grep -Eq '^[[:space:]]+name: rill-runtime-preview$' <<<"$preview_dump"
+              grep -Eq '^[[:space:]]+- name: rill-runtime$' <<<"$preview_dump"
+              ;;
+          esac
           mkdir -p "$GITHUB_WORKSPACE/output"
+          mkdir -p "$GITHUB_WORKSPACE/preview-output"
           printf '%s\n' "$files" | while IFS= read -r file; do
             release_file="rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
             cp "$file" "$GITHUB_WORKSPACE/output/$release_file"
           done
+          cp "$preview_file" "$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
+          (cd "$GITHUB_WORKSPACE/preview-output" && sha256sum -- ./* | sed 's#^\./##') > "$GITHUB_WORKSPACE/preview-output/SHA256SUMS"
           (cd "$GITHUB_WORKSPACE/output" && sha256sum -- ./* | sed 's#^\./##') > "$GITHUB_WORKSPACE/output/SHA256SUMS"
       - name: Generate per-target OpenWrt feed index
         shell: bash
         run: |
           set -euo pipefail
           cd "$SDKDIR"
-          package=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}" -print -quit)
+          package=$(find bin -type f -name "rill-runtime_[0-9]*.${{ matrix.pkgtype }}" -print -quit)
           test -n "$package"
           feed_dir="$GITHUB_WORKSPACE/feed/${{ matrix.release_version }}/${{ matrix.openwrt_target }}/${{ matrix.openwrt_subtarget }}/${{ matrix.package_arch }}"
           mkdir -p "$feed_dir"
@@ -320,16 +347,43 @@ jobs:
           path: feed/
           if-no-files-found: error
       - uses: actions/upload-artifact@v7
+        with:
+          name: rill-runtime-preview-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}
+          path: preview-output/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
         if: ${{ matrix.package_arch == 'x86_64' }}
         with:
           name: rill-openwrt-signing-tools-${{ matrix.pkgtype }}-${{ github.run_id }}
           path: signing-tools-${{ matrix.pkgtype }}.tar.gz
           if-no-files-found: error
 
+  preview-package-parity:
+    name: Preview package parity
+    if: always()
+    needs: [package]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: rill-runtime-preview-*
+          path: preview-artifacts
+          merge-multiple: true
+      - name: Require one exact Preview package for every registered target
+        shell: bash
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          echo "$RESULTS" | jq -e 'to_entries | all(.value.result == "success")'
+          expected=$(python3 scripts/openwrt_targets.py --count)
+          actual=$(find preview-artifacts -type f \( -name '*.ipk' -o -name '*.apk' \) ! -name SHA256SUMS | wc -l | tr -d ' ')
+          test "$actual" -eq "$expected"
+
   qualification-evidence:
     name: Qualification evidence
     if: always()
-    needs: [upstream-version-sync, package]
+    needs: [upstream-version-sync, package, preview-package-parity]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -379,8 +433,11 @@ jobs:
             support_tier=$(jq -r .supportTier <<<"$target_json")
             asset_json=$(jq --arg artifact "$base" --arg sha "$(sha256sum "$asset" | awk '{print $1}')" --arg openwrtVersion "$openwrt_version" --arg target "$openwrt_target" --arg subtarget "$openwrt_subtarget" --arg packageArch "$package_arch" --arg rustTarget "$rust_target" --arg pkgtype "$pkgtype" --arg supportTier "$support_tier" '. + [{artifact:$artifact,sha256:$sha,openwrtVersion:$openwrtVersion,target:$target,subtarget:$subtarget,packageArch:$packageArch,rustTarget:$rustTarget,pkgtype:$pkgtype,supportTier:$supportTier,qualificationState:"PASS",binary:"/usr/bin/rill-runtime",elfClass:"ELF64",endianness:"little",elfMachine:(if $packageArch=="x86_64" then "Advanced Micro Devices X86-64" else "AArch64" end)}]' <<<"$asset_json")
           done
-          jq -n --arg commit "$PACKAGE_COMMIT" --arg runId "$GITHUB_RUN_ID" --arg version "$version" --arg release "$release" --arg upstreamCommit "$upstream_commit" --arg archiveSha "$archive_sha" --argjson assets "$asset_json" \
-            '{schemaVersion:2,packageCommit:$commit,runId:$runId,package:{name:"rill-runtime",version:$version,release:($release|tonumber),recipe:"package/rill-runtime/Makefile",binary:"/usr/bin/rill-runtime"},upstream:{repository:"hello-yunshu/rill-ml",tag:("v"+$version),commit:$upstreamCommit,archiveSha256:$archiveSha},targets:$assets,qualificationState:"automated-qualification",releaseEligible:(all($assets[]; .qualificationState=="PASS"))}' > qualification.json
+          preview_commit=$(jq -r '.upstream.commit' metadata/rill-runtime-preview.json)
+          preview_version=$(jq -r '.package.version' metadata/rill-runtime-preview.json)
+          preview_release=$(jq -r '.package.release' metadata/rill-runtime-preview.json)
+          jq -n --arg commit "$PACKAGE_COMMIT" --arg runId "$GITHUB_RUN_ID" --arg version "$version" --arg release "$release" --arg upstreamCommit "$upstream_commit" --arg archiveSha "$archive_sha" --arg previewCommit "$preview_commit" --arg previewVersion "$preview_version" --arg previewRelease "$preview_release" --argjson assets "$asset_json" \
+            '{schemaVersion:2,packageCommit:$commit,runId:$runId,package:{name:"rill-runtime",version:$version,release:($release|tonumber),recipe:"package/rill-runtime/Makefile",binary:"/usr/bin/rill-runtime"},upstream:{repository:"hello-yunshu/rill-ml",tag:("v"+$version),commit:$upstreamCommit,archiveSha256:$archiveSha},previewPackage:{name:"rill-runtime-preview",version:$previewVersion,release:($previewRelease|tonumber),recipe:"package/rill-runtime-preview/Makefile",binary:"/usr/bin/rill-runtime",channel:"preview-exact-commit",upstreamCommit:$previewCommit,qualificationState:"PASS"},targets:$assets,qualificationState:"automated-qualification",releaseEligible:(all($assets[]; .qualificationState=="PASS"))}' > qualification.json
           jq empty qualification.json
       - uses: actions/upload-artifact@v7
         with:
