@@ -259,9 +259,22 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/preview-output"
           printf '%s\n' "$files" | while IFS= read -r file; do
             release_file="rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
-            cp "$file" "$GITHUB_WORKSPACE/output/$release_file"
+            cp -v "$file" "$GITHUB_WORKSPACE/output/$release_file" || {
+              rc=$?
+              echo "stable package export failed: source=$file destination=$GITHUB_WORKSPACE/output/$release_file"
+              df -h "$GITHUB_WORKSPACE" || true
+              ls -la "$(dirname "$file")" "$GITHUB_WORKSPACE/output" || true
+              exit "$rc"
+            }
           done
-          cp "$preview_file" "$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
+          preview_export="$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
+          cp -v "$preview_file" "$preview_export" || {
+            rc=$?
+            echo "preview package export failed: source=$preview_file destination=$preview_export"
+            df -h "$GITHUB_WORKSPACE" || true
+            ls -la "$(dirname "$preview_file")" "$GITHUB_WORKSPACE/preview-output" || true
+            exit "$rc"
+          }
       - name: Generate per-target OpenWrt feed index
         shell: bash
         run: |
