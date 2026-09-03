@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -17,9 +18,16 @@ SEMVER = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
 
 
 def api(path: str) -> object:
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "rill-openwrt-packages",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     request = Request(
         f"https://api.github.com/{path}",
-        headers={"Accept": "application/vnd.github+json", "User-Agent": "rill-openwrt-packages"},
+        headers=headers,
     )
     with urlopen(request, timeout=30) as response:
         return json.load(response)
@@ -30,10 +38,15 @@ def stable_version(tag: str) -> tuple[int, int, int] | None:
     return tuple(int(part) for part in match.groups()) if match else None
 
 
+def stable_1x_version(tag: str) -> tuple[int, int, int] | None:
+    version = stable_version(tag)
+    return version if version is not None and version[0] == 1 else None
+
+
 def release_for_tag(tag: str) -> dict[str, object]:
     release = api(f"repos/{REPO}/releases/tags/{tag}")
-    if release.get("draft") or release.get("prerelease") or stable_version(tag) is None:
-        raise RuntimeError(f"{tag} is not a published Stable release")
+    if release.get("draft") or release.get("prerelease") or stable_1x_version(tag) is None:
+        raise RuntimeError(f"{tag} is not a published Stable 1.x release")
     return release
 
 
@@ -50,18 +63,29 @@ def resolve_tag_commit(tag: str) -> str:
     return tag_object["object"]["sha"]
 
 
-def latest_release() -> dict[str, object]:
-    releases = api(f"repos/{REPO}/releases?per_page=100")
-    candidates = [
+def select_latest_release(releases: list[dict[str, object]]) -> dict[str, object]:
+    published_stable = [
         release
         for release in releases
         if not release.get("draft")
         and not release.get("prerelease")
         and stable_version(str(release.get("tag_name", ""))) is not None
     ]
+    candidates = [
+        release
+        for release in published_stable
+        if stable_1x_version(str(release.get("tag_name", ""))) is not None
+    ]
     if not candidates:
+        if published_stable:
+            raise RuntimeError("major-policy-block: published Stable releases contain no 1.x version")
         raise RuntimeError("no published Stable Rill release was found")
-    return max(candidates, key=lambda item: stable_version(str(item["tag_name"])))
+    return max(candidates, key=lambda item: stable_1x_version(str(item["tag_name"])))
+
+
+def latest_release() -> dict[str, object]:
+    releases = api(f"repos/{REPO}/releases?per_page=100")
+    return select_latest_release(releases)
 
 
 def archive_sha256(tag: str) -> str:

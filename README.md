@@ -17,7 +17,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 包名 | <code>rill-runtime</code> |
+| Stable 包名 | <code>rill-runtime</code> |
 | 安装路径 | <code>/usr/bin/rill-runtime</code> |
 | 上游来源 | RillML 已发布的 Stable tag archive |
 | 当前来源版本 | <code>v1.5.6</code> |
@@ -25,6 +25,11 @@
 | 包许可证 | MIT |
 | 包维护者 | Rill OpenWrt Packages maintainers |
 | 分发 Release | [rill-runtime releases](https://github.com/hello-yunshu/rill-openwrt-packages/releases) |
+
+Cloudflare IP 的 Preview consumer 使用同一仓库中的独立
+<code>rill-runtime-preview</code> 包。它固定到 metadata 中的 exact upstream
+commit，使用同样的安装路径，但不与 Stable 包同时安装；qualification workflow
+会构建并检查每个注册目标的 Preview artifact，消费者集成直接执行解包后的二进制。
 
 它只分发通用 Runtime 可执行文件，不把 OpenWrt 产品逻辑塞进 Rill：
 
@@ -39,12 +44,9 @@ Release”作为运行时身份。
 
 ## OpenWrt Qualification 矩阵
 
-GitHub Actions 的 canonical qualification workflow 当前覆盖以下组合：
-
-| OpenWrt SDK | 架构 | 包格式 |
-| --- | --- | --- |
-| <code>24.10.8</code> | <code>x86_64</code> / <code>aarch64_generic</code> / <code>aarch64_cortex-a53</code> | IPK |
-| <code>25.12.5</code> | <code>x86_64</code> / <code>aarch64_generic</code> / <code>aarch64_cortex-a53</code> | APK |
+GitHub Actions 的 canonical qualification workflow 从
+[`metadata/openwrt-targets.json`](metadata/openwrt-targets.json) 生成矩阵；该文件是
+OpenWrt Runtime target、package arch、package format 和 Rust target 的唯一事实来源。
 
 这张表只描述仓库实际执行过的 qualification 矩阵。其他架构、其他 OpenWrt
 版本和真实设备必须单独构建、安装、运行并保存证据；当前矩阵只证明
@@ -178,7 +180,8 @@ key、篡改 index 或篡改 package 都必须失败。完整 feed provenance �
 run、包 commit、上游 Stable 和 Release identity。
 
 Feed 由同一 qualification run 的包构建，部署前执行目录、索引和哈希校验；
-只包含当前 6 个已验证 target，不构成对 package 更广泛 OpenWrt/Rust 架构能力的收窄。
+只包含 `metadata/openwrt-targets.json` 中当前启用且已验证的 target，不构成对
+package 更广泛 OpenWrt/Rust 架构能力的收窄。
 
 ## 目录说明
 

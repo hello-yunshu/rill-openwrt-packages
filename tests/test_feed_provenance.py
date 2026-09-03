@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from scripts.build_feed_manifest import main as build_manifest
+from scripts.openwrt_targets import entries
 from tests.test_feed import make_feed
 
 
@@ -30,7 +31,7 @@ class FeedProvenanceTests(unittest.TestCase):
                 sys.argv = old
             manifest = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(manifest["schemaVersion"], 2)
-            self.assertEqual(len(manifest["leaves"]), 6)
+            self.assertEqual(len(manifest["leaves"]), len(entries()))
             self.assertFalse(manifest["productionFeedEligible"])
             self.assertEqual(manifest["qualificationManifestSha256"], hashlib.sha256(qualification.read_bytes()).hexdigest())
             self.assertEqual({leaf["index"] for leaf in manifest["leaves"]}, {"Packages", "packages.adb"})

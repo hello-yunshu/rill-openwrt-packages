@@ -8,6 +8,11 @@ import hashlib
 import json
 from pathlib import Path
 
+try:
+    from scripts.openwrt_targets import entries
+except ModuleNotFoundError:
+    from openwrt_targets import entries
+
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -46,8 +51,15 @@ def main() -> int:
             "indexSha256": digest(index), "feedMetadataSha256": digest(metadata_path),
             "signing": metadata.get("signing", "unsigned"),
         })
-    if len(leaves) != 6:
-        raise SystemExit(f"expected six feed leaves, found {len(leaves)}")
+    expected = {
+        "/".join(str(item[key]) for key in ("openwrtVersion", "target", "subtarget", "packageArch"))
+        for item in entries()
+    }
+    actual = {item["path"] for item in leaves}
+    if actual != expected:
+        missing = sorted(expected - actual)
+        unknown = sorted(actual - expected)
+        raise SystemExit(f"feed leaves do not match target registry; missing={missing}, unknown={unknown}")
     signing_status = "signed" if args.channel == "production" else "unsigned"
     if signing_status == "signed" and (not args.public_key or not args.public_key.is_file() or not args.apk_public_key or not args.apk_public_key.is_file()):
         raise SystemExit("production manifest requires both public keys")

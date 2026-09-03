@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "channel": "preview-exact-commit",
+  "upstream": {
+    "repository": "https://github.com/hello-yunshu/rill-ml",
+    "commit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+    "version": "1.5.6",
+    "tag": "preview-exact-commit"
+  },
+  "package": {
+    "name": "rill-runtime-preview",
+    "version": "1.5.6",
+    "release": 2,
+    "canonicalRecipe": "package/rill-runtime-preview/Makefile",
+    "binary": "/usr/bin/rill-runtime"
+  }
+}
