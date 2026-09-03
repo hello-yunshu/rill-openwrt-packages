@@ -21,15 +21,8 @@
     "sourceOfMapping": "OpenWrt feeds/packages lang/rust/rust-values.mk"
   },
   "automatedQualification": {
-    "status": "pass",
-    "targets": [
-      "24.10.8/x86/64",
-      "24.10.8/armsr/armv8",
-      "24.10.8/mediatek/filogic",
-      "25.12.5/x86/64",
-      "25.12.5/armsr/armv8",
-      "25.12.5/mediatek/filogic"
-    ]
+    "status": "generated-from-registry",
+    "registry": "metadata/openwrt-targets.json"
   },
   "deviceQualification": {
     "status": "pending",

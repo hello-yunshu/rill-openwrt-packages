@@ -20,7 +20,8 @@ class ArchitectureCapabilityTests(unittest.TestCase):
         families = set(data["buildCapability"]["architectureFamilies"])
         self.assertTrue({"x86_64", "aarch64", "arm", "riscv64", "mips"} <= families)
         self.assertTrue(data["buildCapability"]["defaultFeatures"])
-        self.assertEqual(data["automatedQualification"]["status"], "pass")
+        self.assertEqual(data["automatedQualification"]["status"], "generated-from-registry")
+        self.assertEqual(data["automatedQualification"]["registry"], "metadata/openwrt-targets.json")
         self.assertEqual(data["deviceQualification"]["status"], "pending")
 
 

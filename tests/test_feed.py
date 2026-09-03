@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import gzip
 import json
 import tempfile
@@ -5,29 +7,28 @@ import unittest
 from pathlib import Path
 
 from scripts.verify_feed import verify
-
-
-ARCHES = ("x86_64", "aarch64_generic", "aarch64_cortex-a53")
+from scripts.openwrt_targets import entries
 
 
 def make_feed(root: Path, *, corrupt: str | None = None) -> None:
-    for version, pkgtype, package_version in (("24.10.8", "ipk", "1.5.6-1"), ("25.12.5", "apk", "1.5.6-r1")):
-        for arch in ARCHES:
-            target, subtarget = ("x86", "64") if arch == "x86_64" else ("armsr", "armv8") if arch == "aarch64_generic" else ("mediatek", "filogic")
-            leaf = root / version / target / subtarget / arch
-            leaf.mkdir(parents=True)
-            suffix = "ipk" if pkgtype == "ipk" else "apk"
-            package = leaf / f"rill-runtime_{package_version}_{arch}.{suffix}"
-            package.write_bytes(b"qualified-package")
-            metadata = {"openwrtVersion": version, "target": target, "subtarget": subtarget, "packageArch": arch, "pkgtype": pkgtype, "package": "rill-runtime", "packageVersion": package_version, "packageRelease": 1, "signing": "unsigned"}
-            (leaf / "feed-metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
-            if pkgtype == "ipk":
-                import hashlib
-                index = "\n".join(("Package: rill-runtime", f"Version: {package_version}", f"Architecture: {arch}", f"Filename: {package.name}", f"Size: {package.stat().st_size}", f"SHA256sum: {hashlib.sha256(package.read_bytes()).hexdigest()}", ""))
-                (leaf / "Packages").write_text(index, encoding="utf-8")
-                (leaf / "Packages.gz").write_bytes(gzip.compress(index.encode()))
-            else:
-                (leaf / "packages.adb").write_bytes(b"qualified-index")
+    for item in entries():
+        version = str(item["openwrtVersion"])
+        pkgtype = str(item["pkgtype"])
+        arch = str(item["packageArch"])
+        package_version = "1.5.6-1" if pkgtype == "ipk" else "1.5.6-r1"
+        leaf = root / version / str(item["target"]) / str(item["subtarget"]) / arch
+        leaf.mkdir(parents=True)
+        package = leaf / f"rill-runtime_{package_version}_{arch}.{pkgtype}"
+        package.write_bytes(b"qualified-package")
+        metadata = {**item, "package": "rill-runtime", "packageVersion": package_version, "packageRelease": 1, "signing": "unsigned"}
+        (leaf / "feed-metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+        if pkgtype == "ipk":
+            import hashlib
+            index = "\n".join(("Package: rill-runtime", f"Version: {package_version}", f"Architecture: {arch}", f"Filename: {package.name}", f"Size: {package.stat().st_size}", f"SHA256sum: {hashlib.sha256(package.read_bytes()).hexdigest()}", ""))
+            (leaf / "Packages").write_text(index, encoding="utf-8")
+            (leaf / "Packages.gz").write_bytes(gzip.compress(index.encode()))
+        else:
+            (leaf / "packages.adb").write_bytes(b"qualified-index")
     if corrupt == "gzip":
         (root / "24.10.8/x86/64/x86_64/Packages.gz").write_bytes(b"broken")
     if corrupt == "sha":
@@ -36,7 +37,7 @@ def make_feed(root: Path, *, corrupt: str | None = None) -> None:
 
 
 class FeedTests(unittest.TestCase):
-    def test_valid_six_leaf_feed(self):
+    def test_valid_registry_feed(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             make_feed(root)

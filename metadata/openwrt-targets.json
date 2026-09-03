@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "targets": [
+    {"openwrtVersion":"24.10.8","target":"x86","subtarget":"64","sdkPrefix":"x86-64","packageArch":"x86_64","pkgtype":"ipk","rustTarget":"x86_64-unknown-linux-musl","elfMachine":"Advanced Micro Devices X86-64","supportTier":"p0-openwrt-package","enabled":true},
+    {"openwrtVersion":"24.10.8","target":"armsr","subtarget":"armv8","sdkPrefix":"armsr-armv8","packageArch":"aarch64_generic","pkgtype":"ipk","rustTarget":"aarch64-unknown-linux-musl","elfMachine":"AArch64","supportTier":"p0-openwrt-package","enabled":true},
+    {"openwrtVersion":"24.10.8","target":"mediatek","subtarget":"filogic","sdkPrefix":"mediatek-filogic","packageArch":"aarch64_cortex-a53","pkgtype":"ipk","rustTarget":"aarch64-unknown-linux-musl","elfMachine":"AArch64","supportTier":"p0-openwrt-package","enabled":true},
+    {"openwrtVersion":"25.12.5","target":"x86","subtarget":"64","sdkPrefix":"x86-64","packageArch":"x86_64","pkgtype":"apk","rustTarget":"x86_64-unknown-linux-musl","elfMachine":"Advanced Micro Devices X86-64","supportTier":"p0-openwrt-package","enabled":true},
+    {"openwrtVersion":"25.12.5","target":"armsr","subtarget":"armv8","sdkPrefix":"armsr-armv8","packageArch":"aarch64_generic","pkgtype":"apk","rustTarget":"aarch64-unknown-linux-musl","elfMachine":"AArch64","supportTier":"p0-openwrt-package","enabled":true},
+    {"openwrtVersion":"25.12.5","target":"mediatek","subtarget":"filogic","sdkPrefix":"mediatek-filogic","packageArch":"aarch64_cortex-a53","pkgtype":"apk","rustTarget":"aarch64-unknown-linux-musl","elfMachine":"AArch64","supportTier":"p0-openwrt-package","enabled":true}
+  ]
+}

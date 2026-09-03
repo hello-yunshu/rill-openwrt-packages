@@ -10,10 +10,16 @@ short English overview.
 
 ## Scope
 
-The canonical package is <code>rill-runtime</code>. It is built from an immutable,
+The canonical Stable package is <code>rill-runtime</code>. It is built from an immutable,
 published RillML Stable archive and installs only:
 
     /usr/bin/rill-runtime
+
+Cloudflare IP's Preview consumer uses the separately named
+<code>rill-runtime-preview</code> package in this same repository. It is pinned
+to the exact upstream commit in its metadata, installs the same binary path,
+conflicts with Stable, and is built and checked for every registered target.
+Consumer integration executes the binary extracted from that Preview artifact.
 
 It does not install <code>rill-pack</code>, UCI/ubus/procd integration, product
 configuration, firewall helpers, or host-mutation logic. Those responsibilities
@@ -30,10 +36,9 @@ Current provenance:
 
 ## Qualification matrix
 
-| OpenWrt SDK | Architecture | Format |
-| --- | --- | --- |
-| <code>24.10.8</code> | <code>x86_64</code> / <code>aarch64_generic</code> / <code>aarch64_cortex-a53</code> | IPK |
-| <code>25.12.5</code> | <code>x86_64</code> / <code>aarch64_generic</code> / <code>aarch64_cortex-a53</code> | APK |
+The canonical qualification workflow generates its matrix from
+[`metadata/openwrt-targets.json`](metadata/openwrt-targets.json), the single source of
+truth for OpenWrt target, package architecture, package format, and Rust target.
 
 Other targets require their own real build, installation, runtime, and
 artifact evidence. This matrix proves package-level qualification only for
@@ -102,7 +107,7 @@ and `SHA256SUMS` so the feed remains auditable after Actions artifacts expire.
 
 The feed is assembled from the exact qualification run and independently
 verified for layout, indexes, and package hashes before GitHub Pages deployment.
-It contains only the six currently qualified targets and does not narrow the
+It contains only the currently registered and qualified targets and does not narrow the
 package's broader OpenWrt/Rust architecture capability.
 
 ## License
