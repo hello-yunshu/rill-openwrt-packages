@@ -4,7 +4,7 @@ set -euo pipefail
 # OpenWrt released SDKs may carry an older feed rustc. The generic Rill Stable
 # runtime keeps its MSRV and default WASM feature, so qualification installs the
 # exact compiler while retaining rust-package.mk for cross flags and staging.
-: "${RUST_TOOLCHAIN:=1.94.0}"
+: "${RUST_TOOLCHAIN:=$(python3 "$(dirname "${BASH_SOURCE[0]}")/build_toolchain.py")}"
 : "${RUSTUP_VERSION:=1.28.2}"
 : "${RUSTUP_INIT_SHA256:=20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c}"
 : "${RUST_TARGET:=x86_64-unknown-linux-musl}"

@@ -1,0 +1,38 @@
+{
+  "scope": "real-ipk-upgrade-with-libc-db-fixture",
+  "routerValidated": false,
+  "results": [
+    {
+      "channel": "stable",
+      "historicalMetadata": {
+        "name": "rill-runtime",
+        "version": "1.5.6-r1",
+        "architecture": "x86_64"
+      },
+      "candidateMetadata": {
+        "name": "rill-runtime",
+        "version": "1.5.6-r2",
+        "architecture": "x86_64"
+      },
+      "historicalSha256": "50fb5abb1cfcbe932d8cf061a00d55f7281641b9e5696ccc1fa398933cea96e6",
+      "candidateSha256": "f546adcacc821a9305f7638f7d1c1e69bde0f6cc1e03371a64174f2ca9f26fa8",
+      "upgradeRemoveReinstallStatePreserved": true
+    },
+    {
+      "channel": "preview",
+      "historicalMetadata": {
+        "name": "rill-runtime-preview",
+        "version": "1.5.6-r2",
+        "architecture": "x86_64"
+      },
+      "candidateMetadata": {
+        "name": "rill-runtime-preview",
+        "version": "1.5.6-r3",
+        "architecture": "x86_64"
+      },
+      "historicalSha256": "701708ea8ffe73029d7cf44cddf3e74b56eb6b9232a18b21321354ac63b2cd06",
+      "candidateSha256": "af4c486ed635ec87101bdf5cf9bef862343b1a2b09fb4e2988b54213db623195",
+      "upgradeRemoveReinstallStatePreserved": true
+    }
+  ]
+}

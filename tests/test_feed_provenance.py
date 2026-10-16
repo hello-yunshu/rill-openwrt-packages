@@ -37,5 +37,20 @@ class FeedProvenanceTests(unittest.TestCase):
             self.assertEqual({leaf["index"] for leaf in manifest["leaves"]}, {"Packages", "packages.adb"})
 
 
+class FeedPromotionGuardTests(unittest.TestCase):
+    def test_signed_keys_cannot_promote_unqualified_local_manifest(self):
+        import sys
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);feed=root/'feed';make_feed(feed)
+            qualification=root/'qualification.json'
+            qualification.write_text(json.dumps({'schemaVersion':3,'qualificationState':'local-package-qualification',
+                'releaseEligible':False,'packageCommit':'a'*40,'runId':None,'runAttempt':None}))
+            output=root/'manifest.json'
+            with patch.object(sys,'argv',['build_feed_manifest.py',str(feed),str(qualification),str(output),'--channel','production']):
+                with self.assertRaises(SystemExit):build_manifest()
+            self.assertFalse(output.exists())
+
+
 if __name__ == "__main__":
     unittest.main()
