@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "channel": "preview",
+  "openwrtVersion": "24.10.8",
+  "target": "armsr",
+  "subtarget": "armv8",
+  "sdkPrefix": "armsr-armv8",
+  "packageArch": "aarch64_generic",
+  "pkgtype": "ipk",
+  "rustTarget": "aarch64-unknown-linux-musl",
+  "elfMachine": "AArch64",
+  "supportTier": "p0-openwrt-package",
+  "enabled": true,
+  "artifact": "rill-runtime-preview-v24.10.8-aarch64_generic.ipk",
+  "sha256": "1f2cfafcae535b354f0b6c83dc55cd0c697b3ac7bc626fd9cf769e16f7d22a0e",
+  "binary": "/usr/bin/rill-runtime",
+  "binarySha256": "a0eb6ee6962411be737218b22ce374efc08635cafb3448bd25e4300e193e12f7",
+  "binarySize": 5704307,
+  "interpreter": "/lib/ld-musl-aarch64.so.1",
+  "packageMetadata": {
+    "name": "rill-runtime-preview",
+    "version": "1.5.6-r3",
+    "architecture": "aarch64_generic"
+  },
+  "elfClass": "ELF64",
+  "endianness": "little",
+  "package": {
+    "name": "rill-runtime-preview",
+    "version": "1.5.6",
+    "release": 3,
+    "canonicalRecipe": "package/rill-runtime-preview/Makefile",
+    "binary": "/usr/bin/rill-runtime",
+    "recipe": "package/rill-runtime-preview/Makefile",
+    "channel": "preview-exact-commit"
+  },
+  "upstream": {
+    "repository": "hello-yunshu/rill-ml",
+    "commit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+    "version": "1.5.6",
+    "tag": "preview-exact-commit",
+    "sourcePatches": [
+      {
+        "path": "package/rill-runtime-preview/patches/010-wasm-engine-security.patch",
+        "sha256": "747512de30dc2a927bbe8950e8c6fc05f8ba5559462dfd88c8780af9433e7fe9",
+        "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+        "patchedSourceLockSha256": "9d0f0e86fd4258a18d2f7588e6d895bc30fba215b60f2dd5835c44a23e288082",
+        "purpose": "G2-qualified default WASM engine security backport; preserve channel wire/state semantics"
+      }
+    ]
+  },
+  "qualificationState": "PASS",
+  "build": {
+    "rustToolchain": "1.96.0",
+    "sourceLockSha256": "9d0f0e86fd4258a18d2f7588e6d895bc30fba215b60f2dd5835c44a23e288082",
+    "runtimeFeatures": [
+      "wasm"
+    ],
+    "defaultFeatures": true,
+    "sourcePatches": [
+      {
+        "path": "package/rill-runtime-preview/patches/010-wasm-engine-security.patch",
+        "sha256": "747512de30dc2a927bbe8950e8c6fc05f8ba5559462dfd88c8780af9433e7fe9",
+        "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+        "patchedSourceLockSha256": "9d0f0e86fd4258a18d2f7588e6d895bc30fba215b60f2dd5835c44a23e288082",
+        "purpose": "G2-qualified default WASM engine security backport; preserve channel wire/state semantics"
+      }
+    ],
+    "verifiedSource": {
+      "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+      "gitTree": "8b3febdaa017659c4a3d4c70a605afbc927df638",
+      "patchedTreeSha256": "78c109b0c96e73e27156a554689c8e23fe285118d953f1bdde9ac2e9c866da7d"
+    }
+  },
+  "sdk": {
+    "configurationLogSha256": "d0a96f4c2573675307cb39fae65f34392ca46d7470e079dc6c1047d5d3e9670a",
+    "archiveSha256": "5f430f5b30c9ea6dc472710356c139abf916b7ebd5de14e108e9cc204f40a2a4",
+    "openwrtVersion": "24.10.8",
+    "feeds": {
+      "base": {
+        "source": "https://git.openwrt.org/openwrt/openwrt.git;v24.10.8",
+        "commit": "0b795ce79e23b553aa184080c390f9ce92a2b6d4"
+      },
+      "packages": {
+        "source": "https://git.openwrt.org/feed/packages.git^23abaa6f3b0fdfd76b570031107e5718476ff0c8",
+        "commit": "23abaa6f3b0fdfd76b570031107e5718476ff0c8"
+      }
+    }
+  },
+  "securityAudit": {
+    "sourceLockSha256": "9d0f0e86fd4258a18d2f7588e6d895bc30fba215b60f2dd5835c44a23e288082",
+    "database": {
+      "advisory-count": 1329,
+      "last-commit": "edb58f5974b83eb8302332821cb6d389777aa351",
+      "last-updated": "2026-10-14T22:18:32+02:00"
+    },
+    "vulnerabilityCount": 0,
+    "warnings": {},
+    "ignoredAdvisories": []
+  },
+  "resolvedWasmtime": {
+    "engine": "wasmtime v49.0.3",
+    "features": [
+      "component-model",
+      "cranelift",
+      "once_cell",
+      "parallel-compilation",
+      "pulley",
+      "runtime",
+      "std",
+      "wasmtime-jit-icache-coherence"
+    ]
+  }
+}

@@ -11,6 +11,10 @@ on:
         description: Successful OpenWrt package qualification run ID
         required: true
         type: string
+      qualification_run_attempt:
+        description: Exact successful qualification attempt
+        required: true
+        type: number
       qualification_head_sha:
         description: Exact head SHA of that qualification run
         required: true
@@ -31,52 +35,80 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.qualification_head_sha }}
           fetch-depth: 1
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
-          name: qualification-evidence-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
+          name: qualification-evidence-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}-${{ github.event_name == 'workflow_run' && github.event.workflow_run.run_attempt || inputs.qualification_run_attempt }}
           path: evidence
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
-          pattern: rill-runtime-ipk-*-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
+          pattern: rill-runtime-ipk-*-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}-${{ github.event_name == 'workflow_run' && github.event.workflow_run.run_attempt || inputs.qualification_run_attempt }}
           path: release-assets
           merge-multiple: true
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
-          pattern: rill-runtime-apk-*-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
+          pattern: rill-runtime-apk-*-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}-${{ github.event_name == 'workflow_run' && github.event.workflow_run.run_attempt || inputs.qualification_run_attempt }}
           path: release-assets
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
+          pattern: rill-runtime-preview-*-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}-${{ github.event_name == 'workflow_run' && github.event.workflow_run.run_attempt || inputs.qualification_run_attempt }}
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
+          name: rill-openwrt-signing-tools-apk-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}-${{ github.event_name == 'workflow_run' && github.event.workflow_run.run_attempt || inputs.qualification_run_attempt }}
+          path: tools-archives
+      - name: Prepare official APK inspector
+        run: |
+          mkdir -p tools
+          tar -xzf tools-archives/signing-tools-apk.tar.gz -C tools
+          chmod +x tools/bin/apk tools/bin/.apk.bin tools/lib/ld-linux-x86-64.so.2
       - name: Verify exact qualification run and release assets
         id: release
         env:
           HEAD_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.qualification_head_sha }}
           RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
+          RUN_ATTEMPT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.run_attempt || inputs.qualification_run_attempt }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           evidence=$(find evidence -type f -name qualification.json -print -quit)
           test -n "$evidence"
-          jq -e --arg sha "$HEAD_SHA" --arg run "$RUN_ID" \
-            '.schemaVersion == 2 and .packageCommit == $sha and .runId == $run and .qualificationState == "automated-qualification" and .releaseEligible == true and (.targets|length) > 0 and all(.targets[]; .qualificationState == "PASS")' \
-            "$evidence" >/dev/null
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          actual_run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT")
+          jq -e --arg sha "$HEAD_SHA" --argjson attempt "$RUN_ATTEMPT" \
+            '.head_sha==$sha and .run_attempt==$attempt and .status=="completed" and .conclusion=="success" and .path==".github/workflows/qualify.yml"' <<<"$actual_run"
+          jq -e --arg sha "$HEAD_SHA" --argjson run "$RUN_ID" --argjson attempt "$RUN_ATTEMPT" \
+            '.schemaVersion==3 and .packageCommit==$sha and .runId==$run and .runAttempt==$attempt' "$evidence"
+          python3 scripts/verify_qualification.py "$evidence" --channel preview \
+            --package-commit "$HEAD_SHA" --artifacts-dir release-assets --apk "$PWD/tools/bin/apk"
           version=$(jq -r '.package.version' "$evidence")
           release=$(jq -r '.package.release' "$evidence")
           tag="v${version}-r${release}"
           test "$(jq -r '.upstream.tag' metadata/rill-runtime.json)" = "v${version}"
           test "$(jq -r '.upstream.commit' metadata/rill-runtime.json)" = "$(jq -r '.upstream.commit' "$evidence")"
           mapfile -t assets < <(find release-assets -maxdepth 2 -type f \( -name '*.ipk' -o -name '*.apk' \) -print | sort)
-          target_count=$(jq '.targets | length' "$evidence")
+          target_count=$(jq '(.targets|length)+(.previewPackage.targets|length)' "$evidence")
           test "${#assets[@]}" -eq "$target_count"
           for asset in "${assets[@]}"; do
             test -s "$asset"
           done
+          mkdir -p evidence/target-records
+          find release-assets -maxdepth 1 -type f -name 'target-qualification-*.json' -exec mv -- {} evidence/target-records/ \;
+          find release-assets -maxdepth 1 -type f -name 'security-audit-*' -exec mv -- {} evidence/target-records/ \;
           new_sums=$(cd release-assets && sha256sum -- *.ipk *.apk | sort)
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
             existing_dir="$RUNNER_TEMP/existing-release"

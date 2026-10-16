@@ -26,6 +26,9 @@ jobs:
       matrix: ${{ steps.registry.outputs.matrix }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - id: registry
         shell: bash
         run: |
@@ -38,6 +41,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - name: Require latest published Rill Stable
         shell: bash
         run: |
@@ -58,6 +64,9 @@ jobs:
       # Keep the registry as the only target identity source.
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - name: Install SDK host dependencies
         shell: bash
         run: |
@@ -107,7 +116,7 @@ jobs:
             ${{ runner.temp }}/rustup
             ${{ runner.temp }}/cargo
             ${{ env.SDKDIR }}/build_dir/target-*/rill-ml-*/target
-          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('package/rill-runtime/Makefile', 'package/rill-runtime-preview/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
+          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('metadata/build-toolchain.json', 'package/rill-runtime/Makefile', 'package/rill-runtime-preview/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
           restore-keys: |
             rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-
       - name: Prepare SDK and build package
@@ -116,6 +125,7 @@ jobs:
           set -euo pipefail
           cd "$SDKDIR"
           ./scripts/feeds update base packages
+          python3 "$GITHUB_WORKSPACE/scripts/verify_sdk_feeds.py" "$SDKDIR"
           ./scripts/feeds install rust
           mkdir -p package/rill-runtime
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime/." package/rill-runtime/
@@ -123,7 +133,7 @@ jobs:
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime-preview/." package/rill-runtime-preview/
           echo 'CONFIG_PACKAGE_rill-runtime=y' >> .config
           echo 'CONFIG_PACKAGE_rill-runtime-preview=y' >> .config
-          make defconfig
+          bash "$GITHUB_WORKSPACE/scripts/configure_sdk.sh" "$SDKDIR" "$RUNNER_TEMP/sdk-defconfig.log"
           staging_dir=$(make -s val.STAGING_DIR)
           test -n "$staging_dir"
           rust_staging_dir="$staging_dir/host"
@@ -134,7 +144,8 @@ jobs:
           test "$(command -v cargo)" = "$rust_staging_dir/bin/cargo"
           test "$(command -v rustc)" = "$rust_staging_dir/bin/rustc"
           rustc --version
-          [[ "$(rustc --version)" == 'rustc 1.94.0 '* ]]
+          expected_toolchain=$(python3 "$GITHUB_WORKSPACE/scripts/build_toolchain.py")
+          [[ "$(rustc --version)" == "rustc $expected_toolchain "* ]]
           unset CI
           target=package/rill-runtime/compile
           jobs="$(($(nproc)+1))"
@@ -156,105 +167,6 @@ jobs:
           echo "Serial diagnostic exit code: $diagnostic_rc"
           echo "::endgroup::"
           exit "$fast_rc"
-      - name: Inspect exact package payload
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$SDKDIR"
-          files=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}" ! -name "rill-runtime-preview*.${{ matrix.pkgtype }}")
-          test -n "$files"
-          preview_file=$(find bin -type f -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
-          test -n "$preview_file"
-          expected_version=$(sed -n 's/^PKG_VERSION:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")
-          expected_release=$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")
-          preview_release=$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime-preview/Makefile")
-          extract_tar_member_archive() {
-            local archive="$1" destination="$2"
-            mkdir -p "$destination"
-            case "$archive" in
-              *.tar.gz|*.tgz) tar -xzf "$archive" -C "$destination" ;;
-              *.tar.xz|*.txz) tar -xJf "$archive" -C "$destination" ;;
-              *.tar.zst|*.tzst) tar --zstd -xf "$archive" -C "$destination" ;;
-              *.tar.bz2|*.tbz2) tar -xjf "$archive" -C "$destination" ;;
-              *.tar) tar -xf "$archive" -C "$destination" ;;
-              *) tar -xf "$archive" -C "$destination" ;;
-            esac
-          }
-          while IFS= read -r file; do
-            case "${file##*.}" in
-              ipk)
-                package_dir=$(mktemp -d "$RUNNER_TEMP/rill-ipk.XXXXXX")
-                trap 'rm -rf "$package_dir"' RETURN
-                tar -xf "$file" -C "$package_dir"
-                data=$(find "$package_dir" -maxdepth 1 -type f -name 'data.tar.*' -print -quit)
-                control=$(find "$package_dir" -maxdepth 1 -type f -name 'control.tar.*' -print -quit)
-                test -n "$data"
-                test -n "$control"
-                control_dir="$package_dir/control"
-                data_dir="$package_dir/data"
-                extract_tar_member_archive "$control" "$control_dir"
-                extract_tar_member_archive "$data" "$data_dir"
-                control_file=$(find "$control_dir" -type f -name control -print -quit)
-                test -n "$control_file"
-                control_text=$(cat "$control_file")
-                grep -E '^(Package|Version|Architecture): ' "$control_file"
-                grep -Fx 'Package: rill-runtime' <<<"$control_text"
-                grep -Eq "^Version: ${expected_version}-r?${expected_release}$" <<<"$control_text"
-                grep -Fx 'Architecture: ${{ matrix.package_arch }}' <<<"$control_text"
-                find "$data_dir" -type f -o -type l | sed "s#^$data_dir/##; s#^\./##" | grep -Fx usr/bin/rill-runtime
-                ! find "$data_dir" -type f -o -type l | sed "s#^$data_dir/##; s#^\./##" | grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/'
-                readelf -h "$data_dir/usr/bin/rill-runtime" | grep -Fx '  Class:                             ELF64'
-                readelf -h "$data_dir/usr/bin/rill-runtime" | grep -F "  Data:                              2's complement, little endian"
-                readelf -h "$data_dir/usr/bin/rill-runtime" | grep -Fx '  Machine:                           ${{ matrix.elf_machine }}'
-                rm -rf "$package_dir"
-                trap - RETURN
-                ;;
-              apk)
-                test -x "$SDKDIR/staging_dir/host/bin/apk"
-                apk_file=$(realpath "$file")
-                test -f "$apk_file"
-                package_dump=$("$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted adbdump --format json "$apk_file")
-                test -n "$package_dump"
-                jq -e type <<<"$package_dump" >/dev/null
-                test "$(basename "$file")" = "rill-runtime-${expected_version}-r${expected_release}.apk"
-                extract_dir=$(mktemp -d "$RUNNER_TEMP/rill-apk.XXXXXX")
-                "$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted extract --destination "$extract_dir" "$apk_file"
-                test -x "$extract_dir/usr/bin/rill-runtime"
-                ! find "$extract_dir" -type f -o -type l | sed "s#^$extract_dir/##; s#^\./##" | grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/'
-                readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F 'Class:                             ELF64'
-                readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F "Data:                              2's complement, little endian"
-                readelf -h "$extract_dir/usr/bin/rill-runtime" | grep -F 'Machine:                           ${{ matrix.elf_machine }}'
-                rm -rf "$extract_dir"
-                ;;
-          esac
-          done <<< "$files"
-          case "${{ matrix.pkgtype }}" in
-            ipk)
-              preview_dir=$(mktemp -d "$RUNNER_TEMP/rill-preview-ipk.XXXXXX")
-              tar -xf "$preview_file" -C "$preview_dir"
-              preview_control=$(find "$preview_dir" -maxdepth 1 -name 'control.tar.*' -print -quit)
-              preview_data=$(find "$preview_dir" -maxdepth 1 -name 'data.tar.*' -print -quit)
-              test -n "$preview_control"; test -n "$preview_data"
-              extract_tar_member_archive "$preview_control" "$preview_dir/control"
-              extract_tar_member_archive "$preview_data" "$preview_dir/data"
-              grep -Fx 'Package: rill-runtime-preview' "$preview_dir/control/control"
-              test -x "$preview_dir/data/usr/bin/rill-runtime"
-              rm -rf "$preview_dir"
-              ;;
-            apk)
-              preview_dump=$("$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted adbdump --format json "$(realpath "$preview_file")")
-              jq -e type <<<"$preview_dump" >/dev/null
-              test "$(basename "$preview_file")" = "rill-runtime-preview-${expected_version}-r${preview_release}.apk"
-              preview_extract_dir=$(mktemp -d "$RUNNER_TEMP/rill-preview-apk.XXXXXX")
-              "$SDKDIR/staging_dir/host/bin/apk" --allow-untrusted extract --destination "$preview_extract_dir" "$(realpath "$preview_file")"
-              test -x "$preview_extract_dir/usr/bin/rill-runtime"
-              ! find "$preview_extract_dir" -type f -o -type l | sed "s#^$preview_extract_dir/##; s#^\./##" | grep -Eq '(^|/)rill-pack$|(^|/)rill-pack/'
-              readelf -h "$preview_extract_dir/usr/bin/rill-runtime" | grep -F 'Class:                             ELF64'
-              readelf -h "$preview_extract_dir/usr/bin/rill-runtime" | grep -F "Data:                              2's complement, little endian"
-              readelf -h "$preview_extract_dir/usr/bin/rill-runtime" | grep -F 'Machine:                           ${{ matrix.elf_machine }}'
-              rm -rf "$preview_extract_dir"
-              ;;
-          esac
       - name: Export package artifacts
         shell: bash
         run: |
@@ -267,6 +179,42 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/output" "$GITHUB_WORKSPACE/preview-output"
           cp "$stable_file" "$GITHUB_WORKSPACE/output/rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
           cp "$preview_file" "$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
+          export RUSTUP_HOME="$RUNNER_TEMP/rustup" CARGO_HOME="$RUNNER_TEMP/cargo"
+          staging_dir=$(make -s val.STAGING_DIR)
+          export PATH="$staging_dir/host/bin:$CARGO_HOME/bin:$PATH"
+          if ! command -v cargo-audit >/dev/null || ! cargo-audit --version | grep -Fx 'cargo-audit 0.22.2'; then
+            (cd "$GITHUB_WORKSPACE" && cargo install cargo-audit --locked --version 0.22.2)
+          fi
+          stable_version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["package"]["version"])' "$GITHUB_WORKSPACE/metadata/rill-runtime.json")
+          preview_commit=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["upstream"]["commit"])' "$GITHUB_WORKSPACE/metadata/rill-runtime-preview.json")
+          for channel in stable preview; do
+            if [ "$channel" = stable ]; then
+              source_name="rill-ml-$stable_version"
+              artifact="$GITHUB_WORKSPACE/output/rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
+              destination="$GITHUB_WORKSPACE/output/target-qualification-stable-${{ matrix.branch }}-${{ matrix.package_arch }}.json"
+            else
+              source_name="rill-ml-$preview_commit"
+              artifact="$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
+              destination="$GITHUB_WORKSPACE/preview-output/target-qualification-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.json"
+            fi
+            mapfile -t sources < <(find "$SDKDIR/build_dir" -type d -name "$source_name")
+            test "${#sources[@]}" -eq 1
+            python3 "$GITHUB_WORKSPACE/scripts/collect_target_qualification.py" \
+              --package "$artifact" --channel "$channel" \
+              --openwrt-version '${{ matrix.release_version }}' \
+              --architecture '${{ matrix.package_arch }}' --pkgtype '${{ matrix.pkgtype }}' \
+              --source-dir "${sources[0]}" --sdk-dir "$SDKDIR" --sdk-archive-sha256 "$SDK_ARCHIVE_SHA256" --config-log "$RUNNER_TEMP/sdk-defconfig.log" --apk "$SDKDIR/staging_dir/host/bin/apk" \
+              --output "$destination"
+          done
+      - name: Preserve raw dependency audit evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: security-audit-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            output/security-audit-*
+            preview-output/security-audit-*
+          if-no-files-found: warn
       - name: Generate per-target OpenWrt feed index
         shell: bash
         run: |
@@ -346,23 +294,23 @@ jobs:
           tar -czf "$GITHUB_WORKSPACE/signing-tools-${{ matrix.pkgtype }}.tar.gz" -C signing-tools .
       - uses: actions/upload-artifact@v7
         with:
-          name: rill-runtime-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}
+          name: rill-runtime-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: output/
           if-no-files-found: error
       - uses: actions/upload-artifact@v7
         with:
-          name: rill-runtime-feed-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}
+          name: rill-runtime-feed-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: feed/
           if-no-files-found: error
       - uses: actions/upload-artifact@v7
         with:
-          name: rill-runtime-preview-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}
+          name: rill-runtime-preview-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: preview-output/
           if-no-files-found: error
       - uses: actions/upload-artifact@v7
         if: ${{ matrix.package_arch == 'x86_64' }}
         with:
-          name: rill-openwrt-signing-tools-${{ matrix.pkgtype }}-${{ github.run_id }}
+          name: rill-openwrt-signing-tools-${{ matrix.pkgtype }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: signing-tools-${{ matrix.pkgtype }}.tar.gz
           if-no-files-found: error
 
@@ -373,9 +321,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
-          pattern: rill-runtime-preview-*
+          pattern: rill-runtime-preview-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: preview-artifacts
           merge-multiple: true
       - name: Require one exact Preview package for every registered target
@@ -392,10 +343,13 @@ jobs:
   qualification-evidence:
     name: Qualification evidence
     if: always()
-    needs: [upstream-version-sync, package, preview-package-parity]
+    needs: [upstream-version-sync, package, preview-package-parity, package-ownership, signing-contract]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - name: Require build and version gates
         env:
           RESULTS: ${{ toJSON(needs) }}
@@ -404,54 +358,109 @@ jobs:
           echo "$RESULTS" | jq -e 'to_entries | all(.value.result == "success")'
       - uses: actions/download-artifact@v8
         with:
-          pattern: rill-runtime-ipk-*-${{ github.run_id }}
+          pattern: rill-runtime-ipk-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: evidence/artifacts
           merge-multiple: true
       - uses: actions/download-artifact@v8
         with:
-          pattern: rill-runtime-apk-*-${{ github.run_id }}
+          pattern: rill-runtime-apk-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: evidence/artifacts
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: rill-runtime-preview-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/artifacts
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: rill-openwrt-signing-tools-apk-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/tools-archives
+      - name: Prepare official APK inspector
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/tools
+          tar -xzf evidence/tools-archives/signing-tools-apk.tar.gz -C evidence/tools
+          chmod +x evidence/tools/bin/apk evidence/tools/bin/.apk.bin evidence/tools/lib/ld-linux-x86-64.so.2
       - name: Generate immutable provenance evidence
         env:
-          GH_TOKEN: ${{ github.token }}
           PACKAGE_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
           set -euo pipefail
-          version=$(sed -n 's/^PKG_VERSION:=//p' package/rill-runtime/Makefile)
-          release=$(sed -n 's/^PKG_RELEASE:=//p' package/rill-runtime/Makefile)
-          upstream_commit=$(jq -r '.upstream.commit' metadata/rill-runtime.json)
-          archive_sha=$(jq -r '.upstream.archiveSha256' metadata/rill-runtime.json)
-          assets=$(find evidence/artifacts -type f \( -name '*.ipk' -o -name '*.apk' \) -print | sort)
-          expected_count=$(python3 scripts/openwrt_targets.py --count)
-          test "$(printf '%s\n' "$assets" | sed '/^$/d' | wc -l | tr -d ' ')" -eq "$expected_count"
-          asset_json='[]'
-          for asset in $assets; do
-            base=$(basename "$asset")
-            stem=${base#rill-runtime-v}
-            openwrt_version=${stem%%-*}
-            target_suffix=${stem#"$openwrt_version"-}
-            package_arch=${target_suffix%.*}
-            pkgtype=${base##*.}
-            target_json=$(jq -c --arg version "$openwrt_version" --arg arch "$package_arch" --arg type "$pkgtype" '.targets[] | select(.enabled == true and .openwrtVersion == $version and .packageArch == $arch and .pkgtype == $type)' metadata/openwrt-targets.json)
-            test -n "$target_json"
-            openwrt_target=$(jq -r .target <<<"$target_json")
-            openwrt_subtarget=$(jq -r .subtarget <<<"$target_json")
-            rust_target=$(jq -r .rustTarget <<<"$target_json")
-            support_tier=$(jq -r .supportTier <<<"$target_json")
-            asset_json=$(jq --arg artifact "$base" --arg sha "$(sha256sum "$asset" | awk '{print $1}')" --arg openwrtVersion "$openwrt_version" --arg target "$openwrt_target" --arg subtarget "$openwrt_subtarget" --arg packageArch "$package_arch" --arg rustTarget "$rust_target" --arg pkgtype "$pkgtype" --arg supportTier "$support_tier" '. + [{artifact:$artifact,sha256:$sha,openwrtVersion:$openwrtVersion,target:$target,subtarget:$subtarget,packageArch:$packageArch,rustTarget:$rustTarget,pkgtype:$pkgtype,supportTier:$supportTier,qualificationState:"PASS",binary:"/usr/bin/rill-runtime",elfClass:"ELF64",endianness:"little",elfMachine:(if $packageArch=="x86_64" then "Advanced Micro Devices X86-64" else "AArch64" end)}]' <<<"$asset_json")
-          done
-          preview_commit=$(jq -r '.upstream.commit' metadata/rill-runtime-preview.json)
-          preview_version=$(jq -r '.package.version' metadata/rill-runtime-preview.json)
-          preview_release=$(jq -r '.package.release' metadata/rill-runtime-preview.json)
-          jq -n --arg commit "$PACKAGE_COMMIT" --arg runId "$GITHUB_RUN_ID" --arg version "$version" --arg release "$release" --arg upstreamCommit "$upstream_commit" --arg archiveSha "$archive_sha" --arg previewCommit "$preview_commit" --arg previewVersion "$preview_version" --arg previewRelease "$preview_release" --argjson assets "$asset_json" \
-            '{schemaVersion:2,packageCommit:$commit,runId:$runId,package:{name:"rill-runtime",version:$version,release:($release|tonumber),recipe:"package/rill-runtime/Makefile",binary:"/usr/bin/rill-runtime"},upstream:{repository:"hello-yunshu/rill-ml",tag:("v"+$version),commit:$upstreamCommit,archiveSha256:$archiveSha},previewPackage:{name:"rill-runtime-preview",version:$previewVersion,release:($previewRelease|tonumber),recipe:"package/rill-runtime-preview/Makefile",binary:"/usr/bin/rill-runtime",channel:"preview-exact-commit",upstreamCommit:$previewCommit,qualificationState:"PASS"},targets:$assets,qualificationState:"automated-qualification",releaseEligible:(all($assets[]; .qualificationState=="PASS"))}' > qualification.json
-          jq empty qualification.json
+          python3 scripts/build_qualification.py --records evidence/artifacts \
+            --package-commit "$PACKAGE_COMMIT" --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" --output qualification.json \
+            --artifacts-dir evidence/artifacts --apk "$PWD/evidence/tools/bin/apk"
+          python3 scripts/verify_qualification.py qualification.json --channel preview \
+            --package-commit "$PACKAGE_COMMIT" \
+            --artifacts-dir evidence/artifacts --apk "$PWD/evidence/tools/bin/apk"
       - uses: actions/upload-artifact@v7
         with:
-          name: qualification-evidence-${{ github.run_id }}
+          name: qualification-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: qualification.json
+          if-no-files-found: error
+
+  package-ownership:
+    name: Real ${{ matrix.pkgtype }} ownership and state preservation
+    needs: [package]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pkgtype: [ipk, apk]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: rill-openwrt-signing-tools-${{ matrix.pkgtype }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: tools-archives
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: rill-runtime-${{ matrix.pkgtype }}-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: owner-packages
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: rill-runtime-preview-${{ matrix.pkgtype }}-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: owner-packages
+          merge-multiple: true
+      - name: Test every registered target with the real package manager
+        shell: bash
+        env:
+          PKGTYPE: ${{ matrix.pkgtype }}
+        run: |
+          set -euo pipefail
+          mkdir tools
+          tar -xzf "tools-archives/signing-tools-$PKGTYPE.tar.gz" -C tools
+          if [ "$PKGTYPE" = ipk ]; then tool=opkg; else tool=apk; fi
+          chmod +x "tools/bin/$tool" "tools/bin/.$tool.bin" tools/lib/ld-linux-x86-64.so.2
+          python3 - <<'PY'
+          import os, subprocess, sys
+          sys.path.insert(0, 'scripts')
+          from openwrt_targets import entries
+          kind = os.environ['PKGTYPE']
+          tool = 'opkg' if kind == 'ipk' else 'apk'
+          for row in entries():
+              if row['pkgtype'] != kind:
+                  continue
+              suffix = 'v' + row['openwrtVersion'] + '-' + row['packageArch']
+              subprocess.run([
+                  'python3', '-B', 'scripts/verify_' + kind + '_ownership.py',
+                  '--' + tool, 'tools/bin/' + tool,
+                  '--stable', 'owner-packages/rill-runtime-' + suffix + '.' + kind,
+                  '--preview', 'owner-packages/rill-runtime-preview-' + suffix + '.' + kind,
+                  '--output', 'ownership-evidence/' + kind + '/' + suffix,
+              ], check=True)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: package-ownership-evidence-${{ matrix.pkgtype }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ownership-evidence/
           if-no-files-found: error
 
   signing-contract:
@@ -462,11 +471,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: rill-openwrt-signing-tools-ipk-${{ github.run_id }}
+          name: rill-openwrt-signing-tools-ipk-${{ github.run_id }}-${{ github.run_attempt }}
           path: tools-archives
       - uses: actions/download-artifact@v8
         with:
-          name: rill-openwrt-signing-tools-apk-${{ github.run_id }}
+          name: rill-openwrt-signing-tools-apk-${{ github.run_id }}-${{ github.run_attempt }}
           path: tools-archives
       - name: Extract official signing tools
         shell: bash
@@ -478,11 +487,11 @@ jobs:
           done
       - uses: actions/download-artifact@v8
         with:
-          name: rill-runtime-feed-apk-v25.12.5-x86_64-${{ github.run_id }}
+          name: rill-runtime-feed-apk-v25.12.5-x86_64-${{ github.run_id }}-${{ github.run_attempt }}
           path: apk-feed
       - uses: actions/download-artifact@v8
         with:
-          name: rill-runtime-feed-ipk-v24.10.8-x86_64-${{ github.run_id }}
+          name: rill-runtime-feed-ipk-v24.10.8-x86_64-${{ github.run_id }}-${{ github.run_attempt }}
           path: ipk-feed
       - name: Verify ephemeral signatures fail closed
         shell: bash
@@ -492,6 +501,8 @@ jobs:
           chmod +x tools/bin/.usign.bin tools/bin/.apk.bin
           chmod +x tools/lib/ld-linux-x86-64.so.2
           work=$(mktemp -d)
+          apk_user_flags=()
+          if [ "$(id -u)" -ne 0 ]; then apk_user_flags=(--usermode); fi
           trap 'rm -rf "$work"' EXIT
           tools/bin/usign -G -p "$work/ipk.pub" -s "$work/ipk.sec" -c 'Rill CI ephemeral IPK key'
           printf 'Package: rill-runtime\n' > "$work/Packages"
@@ -521,23 +532,33 @@ jobs:
           printf 'file://%s\n' "$work/packages.adb" > "$work/root/repositories"
           # GitHub-hosted runners forbid the package script chroot's unshare; keep
           # the transaction real while isolating this CI-only rootfs fixture.
-          tools/bin/apk --root "$work/root" --usermode --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add --initdb rill-runtime
+          tools/bin/apk "${apk_user_flags[@]}" --root "$work/root" --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add --initdb rill-runtime
           test -x "$work/root/usr/bin/rill-runtime"
-          tools/bin/apk --root "$work/root" --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache del rill-runtime
+          tools/bin/apk "${apk_user_flags[@]}" --root "$work/root" --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache del rill-runtime
           test ! -e "$work/root/usr/bin/rill-runtime"
-          tools/bin/apk --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update
+          tools/bin/apk "${apk_user_flags[@]}" --root "$work/root" --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache update
           rm "$work/root/etc/apk/keys/rill-ci.pub"
-          if tools/bin/apk --root "$work/root" --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add rill-runtime; then exit 1; fi
+          if tools/bin/apk "${apk_user_flags[@]}" --root "$work/root" --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add rill-runtime; then exit 1; fi
           cp "$work/apk.pub" "$work/wrong.pub"
           openssl ecparam -name prime256v1 -genkey -noout -out "$work/wrong.sec"
           openssl ec -in "$work/wrong.sec" -pubout -out "$work/wrong.pub" 2>/dev/null
           cp "$work/wrong.pub" "$work/root/etc/apk/keys/wrong.pub"
-          if tools/bin/apk --root "$work/root" --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add rill-runtime; then exit 1; fi
+          if tools/bin/apk "${apk_user_flags[@]}" --root "$work/root" --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add rill-runtime; then exit 1; fi
           cp "$work/apk.pub" "$work/root/etc/apk/keys/rill-ci.pub"
           cp "$work/packages.adb" "$work/tampered.adb"
           printf 'tamper' >> "$work/tampered.adb"
           printf 'file://%s\n' "$work/tampered.adb" > "$work/root/repositories"
-          if tools/bin/apk --root "$work/root" --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add rill-runtime; then exit 1; fi
+          if tools/bin/apk "${apk_user_flags[@]}" --root "$work/root" --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add rill-runtime; then exit 1; fi
+          printf 'file://%s\n' "$work/packages.adb" > "$work/root/repositories"
+          python3 - "$work/$apk_basename" <<'PYCODE'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          data = bytearray(path.read_bytes())
+          data[len(data) // 2] ^= 1
+          path.write_bytes(data)
+          PYCODE
+          if tools/bin/apk "${apk_user_flags[@]}" --root "$work/root" --no-scripts --keys-dir "$work/root/etc/apk/keys" --repositories-file "$work/root/repositories" --no-cache add rill-runtime; then exit 1; fi
       - name: Exercise real package-manager repository transactions
         shell: bash
         run: |
@@ -683,3 +704,11 @@ jobs:
           tampered_gzip_root="$work/tampered-gzip-root"
           write_opkg_conf "$tampered_gzip_root" "$work/tampered-gzip-leaf"
           expect_opkg_reject "$tampered_gzip_root" 'tampered Packages.gz'
+
+          cp -a "$ipk_leaf" "$work/tampered-package-leaf"
+          mapfile -t payloads < <(find "$work/tampered-package-leaf" -maxdepth 1 -type f -name 'rill-runtime*.ipk')
+          test "${#payloads[@]}" -eq 1
+          printf 'tamper\n' >> "${payloads[0]}"
+          tampered_package_root="$work/tampered-package-root"
+          write_opkg_conf "$tampered_package_root" "$work/tampered-package-leaf"
+          expect_opkg_reject "$tampered_package_root" 'tampered runtime package'

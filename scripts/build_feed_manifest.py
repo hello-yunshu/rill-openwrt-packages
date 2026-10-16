@@ -30,6 +30,19 @@ def main() -> int:
     parser.add_argument("--key-id", default="")
     args = parser.parse_args()
     qualification = json.loads(args.qualification.read_text(encoding="utf-8"))
+    if args.channel == "production":
+        try:
+            from .verify_qualification import verify
+        except ImportError:
+            from verify_qualification import verify
+        if qualification.get("schemaVersion") != 3:
+            raise SystemExit("new production feed requires dual-channel schema 3 qualification")
+        expected=argparse.Namespace(package_commit=None,version=None,release=None,
+            upstream_repository=None,upstream_tag=None,upstream_commit=None,
+            openwrt_version=None,package_arch=None,pkgtype=None,channel="stable")
+        errors=verify(qualification,expected)
+        if errors:raise SystemExit("production feed qualification rejected: " + "; ".join(errors))
+    qualified_targets={tuple(str(row.get(key,"")) for key in ("openwrtVersion","target","subtarget","packageArch")):row for row in qualification.get("targets",[])}
     leaves = []
     for metadata_path in sorted(args.feed.glob("*/*/*/*/feed-metadata.json")):
         leaf = metadata_path.parent
@@ -37,6 +50,11 @@ def main() -> int:
         packages = sorted(leaf.glob(f"*.{metadata['pkgtype']}"))
         if len(packages) != 1:
             raise SystemExit(f"expected one package in {leaf}")
+        if qualified_targets:
+            identity=tuple(str(metadata.get(key,"")) for key in ("openwrtVersion","target","subtarget","packageArch"))
+            qualified=qualified_targets.get(identity)
+            if not qualified or digest(packages[0])!=qualified.get("sha256"):
+                raise SystemExit(f"feed package bytes differ from qualified source artifact: {leaf}")
         # Keep the manifest index digest aligned with verify_feed.py's
         # semantic IPK index contract; Packages.gz is checked separately.
         index_name = "Packages" if metadata["pkgtype"] == "ipk" else "packages.adb"
@@ -65,11 +83,14 @@ def main() -> int:
         raise SystemExit("production manifest requires both public keys")
     package = qualification["package"]
     manifest = {
-        "schemaVersion": 2, "channel": args.channel,
+        "schemaVersion": 3 if qualification.get("schemaVersion")==3 else 2, "channel": args.channel,
         "productionFeedEligible": signing_status == "signed",
         "package": package["name"], "packageVersion": package["version"],
         "packageRelease": package["release"], "packageVersionRelease": f"{package['version']}-r{package['release']}",
         "packageCommit": qualification["packageCommit"], "qualificationRun": qualification["runId"],
+        "qualificationRunAttempt": qualification.get("runAttempt"),
+        "qualificationState": qualification.get("qualificationState"),
+        "sourceBuild": qualification.get("build"),
         "qualificationManifestSha256": digest(args.qualification),
         "releaseTag": f"v{package['version']}-r{package['release']}", "releaseUrl": args.release_url,
         "upstream": qualification["upstream"],

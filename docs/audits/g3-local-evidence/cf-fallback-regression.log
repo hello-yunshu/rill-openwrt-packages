@@ -1,0 +1,6 @@
+Missing Runtime is explicit and preserves Native fallback
+Rill disabled no-exec contract passed
+{}
+Assisted unhealthy fallback preserves Native transaction selection
+Rill status timeout fallback contract passed
+Assisted resource-pressure fallback preserves Native transaction selection
