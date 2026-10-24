@@ -5,12 +5,35 @@
     "repository": "https://github.com/hello-yunshu/rill-ml",
     "commit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
     "version": "1.5.6",
-    "tag": "preview-exact-commit"
+    "tag": "preview-exact-commit",
+    "sourcePatches": [
+      {
+        "path": "package/rill-runtime-preview/patches/010-wasm-engine-security.patch",
+        "sha256": "747512de30dc2a927bbe8950e8c6fc05f8ba5559462dfd88c8780af9433e7fe9",
+        "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+        "patchedSourceLockSha256": "3e20b673fd5c32c881a80242556532a919c8b1d2836dc6d538ee00740cad6311",
+        "purpose": "G2-qualified default WASM engine security backport; preserve channel wire/state semantics"
+      },
+      {
+        "path": "package/rill-runtime-preview/patches/020-archive-dependency.patch",
+        "sha256": "6d324e108eb3afb56870b6761c44a818cf6b072a495087a4de1be1a00cbf77ef",
+        "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+        "patchedSourceLockSha256": "3e20b673fd5c32c881a80242556532a919c8b1d2836dc6d538ee00740cad6311",
+        "purpose": "Replace yanked ZIP dependency, preserving signed archive and Runtime protocol compatibility; lock digest covers the complete ordered patch set."
+      },
+      {
+        "path": "package/rill-runtime-preview/patches/030-wasm-engine-advisories.patch",
+        "sha256": "599cd28c79eaafa4e38d80faf99eaf9c44b765a83bf1dced5f7dd9511103bd29",
+        "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+        "patchedSourceLockSha256": "3e20b673fd5c32c881a80242556532a919c8b1d2836dc6d538ee00740cad6311",
+        "purpose": "Resolve RUSTSEC-2026-0378/0379 and Tokio unsoundness warning RUSTSEC-2026-0386; preserve qualified Runtime features and wire/state semantics."
+      }
+    ]
   },
   "package": {
     "name": "rill-runtime-preview",
     "version": "1.5.6",
-    "release": 2,
+    "release": 5,
     "canonicalRecipe": "package/rill-runtime-preview/Makefile",
     "binary": "/usr/bin/rill-runtime"
   }

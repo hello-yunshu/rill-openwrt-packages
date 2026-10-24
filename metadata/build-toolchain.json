@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "rustToolchain": "1.96.0",
+  "profile": "minimal",
+  "runtimeDefaultFeatures": true,
+  "runtimeFeatures": ["wasm"]
+}

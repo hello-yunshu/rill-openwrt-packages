@@ -1,0 +1,19 @@
+{
+  "artifact": "rill-runtime-v25.12.5-x86_64.apk",
+  "sha256": "bd7597f3b956e45c5bc7bf3baa1766561f0668756d0be2c709380b2307fe8470",
+  "binary": "/usr/bin/rill-runtime",
+  "binarySha256": "b2cc2fe6b65da9f29755408be267a08ff24b92d9d29a532393aa4af2e7308ab0",
+  "binarySize": 7486131,
+  "interpreter": "/lib/ld-musl-x86_64.so.1",
+  "packageMetadata": {
+    "name": "rill-runtime",
+    "version": "1.5.6-r1",
+    "architecture": "x86_64"
+  },
+  "packageMetadataFiles": [
+    "lib/apk/packages/rill-runtime.list"
+  ],
+  "elfClass": "ELF64",
+  "endianness": "little",
+  "elfMachine": "Advanced Micro Devices X86-64"
+}

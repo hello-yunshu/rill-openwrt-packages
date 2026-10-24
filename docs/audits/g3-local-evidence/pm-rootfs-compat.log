@@ -1,0 +1,12 @@
+PASS: real generic Runtime v3 handshake, health, decide, feedback, duplicate rejection, and restart persistence
+Traceback (most recent call last):
+  File "/rp/scripts/inspect_runtime_package.py", line 133, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/rp/scripts/inspect_runtime_package.py", line 130, in main
+    print(json.dumps(inspect(args.package,args.name,args.architecture,args.version,args.apk),indent=2))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/rp/scripts/inspect_runtime_package.py", line 95, in inspect
+    if set(payload)!={'usr/bin/rill-runtime'}:raise ValueError('runtime package must own only /usr/bin/rill-runtime')
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: runtime package must own only /usr/bin/rill-runtime

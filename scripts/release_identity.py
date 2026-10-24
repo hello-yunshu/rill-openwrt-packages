@@ -27,6 +27,10 @@ IDENTITY_TARGET_FIELDS = (
     "elfClass",
     "endianness",
     "elfMachine",
+    "binarySha256",
+    "packageMetadata",
+    "interpreter",
+    "resolvedWasmtime",
 )
 
 
@@ -78,7 +82,7 @@ def semantic_identity(evidence: dict[str, Any]) -> dict[str, Any]:
     targets = evidence.get("targets")
     if not isinstance(package, dict) or not isinstance(upstream, dict) or not isinstance(targets, list):
         raise IdentityMismatch("qualification evidence is missing package, upstream, or targets")
-    return {
+    identity = {
         "package": {
             "name": package.get("name"),
             "version": package.get("version"),
@@ -93,6 +97,19 @@ def semantic_identity(evidence: dict[str, Any]) -> dict[str, Any]:
         },
         "targets": sorted((_target_identity(target) for target in targets), key=lambda item: str(item["artifact"])),
     }
+    if evidence.get("schemaVersion") == 3:
+        preview = evidence.get("previewPackage")
+        if not isinstance(preview, dict) or not isinstance(preview.get("targets"), list):
+            raise IdentityMismatch("schema 3 is missing Preview binary identity")
+        identity["build"] = evidence.get("build")
+        identity["previewPackage"] = {
+            "package": {key: preview.get(key) for key in ("name", "version", "release", "recipe", "binary")},
+            "upstream": preview.get("upstream"),
+            "build": preview.get("build"),
+            "targets": sorted((_target_identity(target) for target in preview["targets"]), key=lambda item: str(item["artifact"])),
+        }
+    return identity
+
 
 
 def release_tag(evidence: dict[str, Any]) -> str:

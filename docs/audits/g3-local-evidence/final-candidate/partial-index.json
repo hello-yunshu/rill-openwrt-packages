@@ -1,0 +1,135 @@
+{
+  "scope": "new ZIP9 candidate local evidence",
+  "observedAt": "2026-10-16T05:40:24.855776+00:00",
+  "complete": false,
+  "releaseEligible": false,
+  "qualificationRun": null,
+  "requiredSDKRecords": 12,
+  "observedSDKRecords": 4,
+  "x86IPKConsumerAndPackageManagerChecks": "PASS",
+  "open": [
+    "remaining SDK records",
+    "APK actual-candidate ownership and signing",
+    "PM Full actual APK ownership",
+    "hosted qualification",
+    "consumer locks"
+  ],
+  "files": [
+    {
+      "path": "after-final-x86-reinspect.log",
+      "sha256": "97c491a2e60cc3f665f4e0bdf31a64ab7aa11d255d140d3fd2a81e138fd99944"
+    },
+    {
+      "path": "apk-metadata-probe-fixed.log",
+      "sha256": "db25d758a7194bd0c02c46a514ecddb301a8d8ee41ba46005cafc23a8c449c53"
+    },
+    {
+      "path": "apk-metadata-probe.log",
+      "sha256": "7d4c9d4fdf322468afaa2846639b093198987950084b5546dadf75cec061a434"
+    },
+    {
+      "path": "apk-negative-solver-info.log",
+      "sha256": "b703160921589c8b541288850e9d2fbe44f3e6cfe9b688cb13592d758704a871"
+    },
+    {
+      "path": "apk-negative-solver-retry.log",
+      "sha256": "13386d0d405b68bd6df766a24ef0ab8669667e1b227738c0c2deb7d043677b5d"
+    },
+    {
+      "path": "final-ipk-upgrades.log",
+      "sha256": "453fdc2077b96c736481c8dc029166f6afa2d8cab601e98d3d04d29f9e357b85"
+    },
+    {
+      "path": "final-opkg-ownership.log",
+      "sha256": "2b3fd604187f5bc9c3c62e6409d68997ddf4e500f8c7f9fe43ec4c3acf027b63"
+    },
+    {
+      "path": "final-opkg-signing.log",
+      "sha256": "b2e984dbd8466b0ca1bc2abc413e22d031d19b8cf426ce502a5a93cdfd69e8ca"
+    },
+    {
+      "path": "final-x86-consumer.log",
+      "sha256": "16e9596578e922d501ccb74a1b762c7bcf0ae82416ec36e067c5d1452577161b"
+    },
+    {
+      "path": "final-x86-wasm-trust.log",
+      "sha256": "43d11621d6a88316c1a7271be29a7bb1338779ee9bdebacce74f75500ec805d1"
+    },
+    {
+      "path": "historical-apk-conflict-before.log",
+      "sha256": "3dccd0d61c85f0531165c8ab9b65437a49c1584ca67c5dbbcf65e37eca113a78"
+    },
+    {
+      "path": "pm-sdk-prep.log",
+      "sha256": "1b1a89635e8df9e002804385ef58bd961a4aa4d545fda23583910c1be9f3884c"
+    },
+    {
+      "path": "runtime-smoke/final-ipk-upgrades/results.json",
+      "sha256": "aa6709f865ddf7f5b1668f0f7d90c8e162f0511a54a2cf6dd2325d75acc008da"
+    },
+    {
+      "path": "runtime-smoke/final-opkg-ownership/results.json",
+      "sha256": "2b3fd604187f5bc9c3c62e6409d68997ddf4e500f8c7f9fe43ec4c3acf027b63"
+    },
+    {
+      "path": "runtime-smoke/final-x86/pm-stable.json",
+      "sha256": "d89234dbf43170c445a02082061c3508cc6cad511f26a12f091b2aa9ecd275b6"
+    },
+    {
+      "path": "runtime-smoke/final-x86/wasm-negative-results.json",
+      "sha256": "4fbf9d3cfb6895a036bc59ec1a4c8449f90ecf483d3a86bf746f7bf8f11085f5"
+    },
+    {
+      "path": "runtime-smoke/historical-apk-conflict-before/package-metadata.json",
+      "sha256": "8ba88c09f7d47ae6be59956a72dadb0fb53b7f188f0527f0487c41f3650b2b60"
+    },
+    {
+      "path": "targets/security-audit-target-qualification-preview-v24.10.8-aarch64_generic.json",
+      "sha256": "2524b20a21675b380b6dc86c31131344ecb23befd8773d11272976500e511675"
+    },
+    {
+      "path": "targets/security-audit-target-qualification-preview-v24.10.8-aarch64_generic.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "targets/security-audit-target-qualification-preview-v24.10.8-x86_64.json",
+      "sha256": "2524b20a21675b380b6dc86c31131344ecb23befd8773d11272976500e511675"
+    },
+    {
+      "path": "targets/security-audit-target-qualification-preview-v24.10.8-x86_64.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "targets/security-audit-target-qualification-stable-v24.10.8-aarch64_generic.json",
+      "sha256": "2524b20a21675b380b6dc86c31131344ecb23befd8773d11272976500e511675"
+    },
+    {
+      "path": "targets/security-audit-target-qualification-stable-v24.10.8-aarch64_generic.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "targets/security-audit-target-qualification-stable-v24.10.8-x86_64.json",
+      "sha256": "2524b20a21675b380b6dc86c31131344ecb23befd8773d11272976500e511675"
+    },
+    {
+      "path": "targets/security-audit-target-qualification-stable-v24.10.8-x86_64.stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "targets/target-qualification-preview-v24.10.8-aarch64_generic.json",
+      "sha256": "850438b1ccceb36d590a3e00db48859a23b8a4861261f6eac9ac7f18b418318c"
+    },
+    {
+      "path": "targets/target-qualification-preview-v24.10.8-x86_64.json",
+      "sha256": "fdb6a32846e82135b74ae91d92bb61e7d605c038f71c87c1cba9631d5dd3a8ec"
+    },
+    {
+      "path": "targets/target-qualification-stable-v24.10.8-aarch64_generic.json",
+      "sha256": "4a264092227e696ab86b026ed384534056f17b5bdcb320a8aad0aa4567405c79"
+    },
+    {
+      "path": "targets/target-qualification-stable-v24.10.8-x86_64.json",
+      "sha256": "11d601a03ef7e77f0727858ad0f51dc9e708c375c8511548b6b5c08bda56fde4"
+    }
+  ]
+}

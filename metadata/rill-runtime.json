@@ -8,12 +8,35 @@
     "releaseUrl": "https://github.com/hello-yunshu/rill-ml/releases/tag/v1.5.6",
     "archiveUrl": "https://github.com/hello-yunshu/rill-ml/archive/refs/tags/v1.5.6.tar.gz",
     "archiveSha256": "c06a792811d1f08aa7b640c10ee36047c44f825cf7272aa0f75c42ab60806a84",
-    "publishedAt": "2026-08-28T16:39:11Z"
+    "publishedAt": "2026-08-28T16:39:11Z",
+    "sourcePatches": [
+      {
+        "path": "package/rill-runtime/patches/010-wasm-engine-security.patch",
+        "sha256": "747512de30dc2a927bbe8950e8c6fc05f8ba5559462dfd88c8780af9433e7fe9",
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "patchedSourceLockSha256": "3e20b673fd5c32c881a80242556532a919c8b1d2836dc6d538ee00740cad6311",
+        "purpose": "G2-qualified default WASM engine security backport; preserve channel wire/state semantics"
+      },
+      {
+        "path": "package/rill-runtime/patches/020-archive-dependency.patch",
+        "sha256": "6d324e108eb3afb56870b6761c44a818cf6b072a495087a4de1be1a00cbf77ef",
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "patchedSourceLockSha256": "3e20b673fd5c32c881a80242556532a919c8b1d2836dc6d538ee00740cad6311",
+        "purpose": "Replace yanked ZIP dependency, preserving signed archive and Runtime protocol compatibility; lock digest covers the complete ordered patch set."
+      },
+      {
+        "path": "package/rill-runtime/patches/030-wasm-engine-advisories.patch",
+        "sha256": "599cd28c79eaafa4e38d80faf99eaf9c44b765a83bf1dced5f7dd9511103bd29",
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "patchedSourceLockSha256": "3e20b673fd5c32c881a80242556532a919c8b1d2836dc6d538ee00740cad6311",
+        "purpose": "Resolve RUSTSEC-2026-0378/0379 and Tokio unsoundness warning RUSTSEC-2026-0386; preserve qualified Runtime features and wire/state semantics."
+      }
+    ]
   },
   "package": {
     "name": "rill-runtime",
     "version": "1.5.6",
-    "release": 1,
+    "release": 3,
     "canonicalRecipe": "package/rill-runtime/Makefile",
     "binary": "/usr/bin/rill-runtime"
   }

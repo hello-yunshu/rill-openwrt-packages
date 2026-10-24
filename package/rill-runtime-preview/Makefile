@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rill-runtime-preview
 PKG_VERSION:=1.5.6
-PKG_RELEASE:=2
+PKG_RELEASE:=5
 PKG_LICENSE:=MIT
 PKG_MAINTAINER:=Rill OpenWrt Packages maintainers
 PKG_SOURCE_PROTO:=git
@@ -12,6 +12,7 @@ PKG_SOURCE_SUBDIR:=rill-ml-$(PKG_SOURCE_VERSION)
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_SOURCE_SUBDIR)
 RUST_PKG_LOCKED:=1
 PKG_BUILD_PARALLEL:=1
+RILL_RUNTIME_PREVIEW_CONFLICTS:=rill-runtime
 
 include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/packages/lang/rust/rust-package.mk
@@ -22,7 +23,8 @@ define Package/rill-runtime-preview
   TITLE:=Rill generic local Preview runtime
   URL:=https://github.com/hello-yunshu/rill-ml
   DEPENDS:=+libc
-  CONFLICTS:=rill-runtime
+  CONFLICTS:=$(RILL_RUNTIME_PREVIEW_CONFLICTS)
+  EXTRA_DEPENDS:=$(if $(CONFIG_USE_APK),$(foreach conflict,$(RILL_RUNTIME_PREVIEW_CONFLICTS),!$(conflict) (>=0)$(comma)))
 endef
 
 define Package/rill-runtime-preview/description

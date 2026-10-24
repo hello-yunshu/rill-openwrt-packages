@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rill-runtime
 PKG_VERSION:=1.5.6
-PKG_RELEASE:=1
+PKG_RELEASE:=3
 PKG_LICENSE:=MIT
 PKG_MAINTAINER:=Rill OpenWrt Packages maintainers
 PKG_SOURCE:=v$(PKG_VERSION).tar.gz

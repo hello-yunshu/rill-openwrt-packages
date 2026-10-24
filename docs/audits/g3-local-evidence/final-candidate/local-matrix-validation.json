@@ -1,0 +1,13 @@
+{
+  "scope": "all twelve local package/source/ELF/digest records inspected; no hosted qualification",
+  "sourceAndByteValidation": "PASS",
+  "releaseVerifier": "REJECTED",
+  "releaseEligible": false,
+  "expectedRejections": [
+    "qualification is not release eligible",
+    "invalid runId",
+    "invalid runAttempt"
+  ],
+  "packageCommitMeaning": "original package repository baseline plus local changes; no immutable candidate run claimed",
+  "manifestSha256": "905909b35b21f2ed32ebd454d007aed331f8680903f87085149c1cd0cd46e42f"
+}
