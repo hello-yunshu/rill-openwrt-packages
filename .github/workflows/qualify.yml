@@ -83,12 +83,9 @@ jobs:
         run: |
           set -euo pipefail
           base="https://downloads.openwrt.org/releases/${{ matrix.release_version }}/targets/$OPENWRT_TARGET/$OPENWRT_SUBTARGET"
-          curl --fail --silent --show-error --location --retry 3 --connect-timeout 30 --max-time 120 "$base/" -o "$RUNNER_TEMP/sdk-index.html"
-          sdk=$(grep -oE 'openwrt-sdk-${{ matrix.release_version }}-[^"< ]+[.]tar[.]zst' "$RUNNER_TEMP/sdk-index.html" | grep -m1 -F "${SDK_PREFIX}_")
-          test -n "$sdk"
           curl --fail --silent --show-error --location --retry 3 --connect-timeout 30 --max-time 120 "$base/sha256sums" -o "$RUNNER_TEMP/sdk-sha256sums"
-          sdk_archive_sha=$(awk -v f="*$sdk" '$2==f {print $1}' "$RUNNER_TEMP/sdk-sha256sums")
-          [[ "$sdk_archive_sha" =~ ^[0-9a-f]{64}$ ]]
+          identity=$(python3 scripts/resolve_sdk_identity.py "$RUNNER_TEMP/sdk-sha256sums" --version '${{ matrix.release_version }}' --prefix "$SDK_PREFIX")
+          read -r sdk sdk_archive_sha <<< "$identity"
           {
             echo "SDK_BASE=$base"
             echo "SDK_ARCHIVE_NAME=$sdk"
