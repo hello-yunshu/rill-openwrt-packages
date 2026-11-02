@@ -21,7 +21,8 @@ def fixture(extra=False,machine=62,mode=0o755):
     binary=bytearray(64);binary[:6]=b'\x7fELF\x02\x01'
     struct.pack_into('<H',binary,18,machine);struct.pack_into('<Q',binary,32,64)
     struct.pack_into('<HH',binary,54,56,0)
-    items=[('usr/bin/rill-runtime',bytes(binary),mode)]
+    items=[('usr/bin/rill-runtime',bytes(binary),mode),
+           ('usr/share/rill/runtime-channel',b'preview\n',0o644)]
     if extra:items.append(('usr/bin/rill-pack',b'unexpected tool',0o755))
     control=archive([('control',b'Package: rill-runtime-preview\nVersion: 1.5.6-r3\nArchitecture: x86_64\n',0o644)])
     return archive([('control.tar.gz',control,0o644),('data.tar.gz',archive(items),0o644)])
@@ -29,15 +30,19 @@ def fixture(extra=False,machine=62,mode=0o755):
 
 class RealPackageInspector(unittest.TestCase):
     def test_apk_owner_metadata_cannot_hide_an_additional_owner(self):
-        binary={'usr/bin/rill-runtime':b'payload'}
+        marker='usr/share/rill/runtime-channel'
+        binary={'usr/bin/rill-runtime':b'payload',marker:b'stable\n'}
         owner='lib/apk/packages/rill-runtime.list'
-        self.assertEqual(runtime_payload({**binary,owner:b'/usr/bin/rill-runtime\n'},'rill-runtime','apk'),
+        owners=b'/usr/bin/rill-runtime\n/usr/share/rill/runtime-channel\n'
+        self.assertEqual(runtime_payload({**binary,owner:owners},'rill-runtime','apk'),
                          (b'payload',[owner]))
         for payload,kind in [
-            ({**binary,owner:b'/usr/bin/rill-runtime\n/etc/config/user\n'},'apk'),
-            ({**binary,'lib/apk/packages/other.list':b'/usr/bin/rill-runtime\n'},'apk'),
-            ({**binary,owner:b'/usr/bin/rill-runtime\n','usr/bin/extra':b'bad'},'apk'),
-            ({**binary,owner:b'/usr/bin/rill-runtime\n'},'ipk'),
+            ({**binary,owner:owners+b'/etc/config/user\n'},'apk'),
+            ({**binary,'lib/apk/packages/other.list':owners},'apk'),
+            ({**binary,owner:owners,'usr/bin/extra':b'bad'},'apk'),
+            ({**binary,owner:owners},'ipk'),
+            ({**binary,marker:b'preview\n',owner:owners},'apk'),
+            ({'usr/bin/rill-runtime':b'payload',owner:owners},'apk'),
         ]:
             with self.subTest(kind=kind,files=list(payload)),self.assertRaises(ValueError):
                 runtime_payload(payload,'rill-runtime',kind)
