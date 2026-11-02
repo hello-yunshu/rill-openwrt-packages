@@ -1,0 +1,9 @@
+Collected errors:
+ * pkg_get_installed_files: Failed to open /builder/runtime-smoke/opkg-owner/preview-first//usr/lib/opkg/info/libc.list: No such file or directory.
+No packages removed.
+Collected errors:
+ * pkg_get_installed_files: Failed to open /builder/runtime-smoke/opkg-owner/preview-first//usr/lib/opkg/info/libc.list: No such file or directory.
+ * check_conflicts_for: The following packages conflict with rill-runtime-preview:
+ * check_conflicts_for: 	rill-runtime * 
+ * opkg_install_cmd: Cannot install package rill-runtime-preview.
+Installing rill-runtime-preview (1.5.6-r3) to root...

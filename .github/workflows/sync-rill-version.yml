@@ -8,40 +8,38 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+
+concurrency:
+  group: rill-stable-sync
+  cancel-in-progress: false
 
 jobs:
   update-stable:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: main
+          persist-credentials: false
       - name: Update canonical package to the published Stable
         shell: bash
         run: |
           set -euo pipefail
-          before=$(git rev-parse HEAD)
-          python3 scripts/update_rill_version.py --json | tee "$RUNNER_TEMP/update.json"
-          if git diff --quiet -- package/rill-runtime/Makefile metadata/rill-runtime.json; then
-            echo 'No Stable package update is required.'
-            exit 0
-          fi
-          version=$(jq -r '.upstream.version' "$RUNNER_TEMP/update.json")
-          tag=$(jq -r '.upstream.tag' "$RUNNER_TEMP/update.json")
-          upstream_commit=$(jq -r '.upstream.commit' "$RUNNER_TEMP/update.json")
-          archive_sha=$(jq -r '.upstream.archiveSha256' "$RUNNER_TEMP/update.json")
-          release_url=$(jq -r '.upstream.releaseUrl' "$RUNNER_TEMP/update.json")
-          branch="automation/rill-stable-${version}"
-          git switch -c "$branch"
-          git add package/rill-runtime/Makefile metadata/rill-runtime.json
-          git commit -m "build: update rill-runtime to Stable v${version}"
-          git push origin "HEAD:${branch}"
-          if ! gh pr list --base main --head "$branch" --state open --json number --jq 'length' | grep -qx 1; then
-            gh pr create --base main --head "$branch" \
-              --title "build: update rill-runtime to Stable v${version}" \
-              --body "## Rill Stable package update\n\n- Old package commit: ${before}\n- New version: ${version}\n- Upstream tag: ${tag}\n- Upstream commit: ${upstream_commit}\n- Archive SHA256: ${archive_sha}\n- Release: ${release_url}\n\nThe required OpenWrt qualification workflow must pass before merge."
-          fi
+          python3 scripts/update_rill_version.py --json > "$RUNNER_TEMP/update.json"
+          cat > "$RUNNER_TEMP/body.md" <<'EOF'
+          Updates only the canonical package recipe and preserved upstream metadata.
+          OpenWrt qualification must pass for this exact source before merge.
+          The required exact-commit qualification is explicitly dispatched; a PR alone is not a PASS.
+          EOF
+          python3 scripts/open_sync_pr.py --base main --prefix automation/rill-stable \
+            --title "build: sync qualified Rill Stable package source" --qualification-workflow qualify.yml \
+            --body-file "$RUNNER_TEMP/body.md" \
+            package/rill-runtime/Makefile metadata/rill-runtime.json
         env:
           GH_TOKEN: ${{ github.token }}

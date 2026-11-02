@@ -1,0 +1,2 @@
+PASS APK package bytes, payload hash, ELF identity and final lock before execution
+PASS actual new x86 APK consumer, WASM trust, ownership and signed repository negative checks

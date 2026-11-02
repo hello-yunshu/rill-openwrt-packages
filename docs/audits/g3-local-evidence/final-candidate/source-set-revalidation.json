@@ -1,0 +1,149 @@
+{
+  "scope": "all twelve retained actual SDK source trees, including rejection of extra source inputs",
+  "results": [
+    {
+      "channel": "preview",
+      "openwrtVersion": "24.10.8",
+      "architecture": "aarch64_cortex-a53",
+      "pkgtype": "ipk",
+      "sourceIdentity": {
+        "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+        "gitTree": "8b3febdaa017659c4a3d4c70a605afbc927df638",
+        "patchedTreeSha256": "6d4738c9fb372861749e48aa76cba3821ef49639a8fe53d1ff163a7af8f9aab4"
+      },
+      "unexpectedSourceInputs": false
+    },
+    {
+      "channel": "stable",
+      "openwrtVersion": "24.10.8",
+      "architecture": "aarch64_cortex-a53",
+      "pkgtype": "ipk",
+      "sourceIdentity": {
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "gitTree": "5d929bcde9247d6e428ad6ae13645ff1de45136c",
+        "patchedTreeSha256": "a9282b30f8876734cad29b573c0ae57bc90a9e6c483da3e4c25c57d0a5d075a7"
+      },
+      "unexpectedSourceInputs": false
+    },
+    {
+      "channel": "preview",
+      "openwrtVersion": "24.10.8",
+      "architecture": "aarch64_generic",
+      "pkgtype": "ipk",
+      "sourceIdentity": {
+        "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+        "gitTree": "8b3febdaa017659c4a3d4c70a605afbc927df638",
+        "patchedTreeSha256": "6d4738c9fb372861749e48aa76cba3821ef49639a8fe53d1ff163a7af8f9aab4"
+      },
+      "unexpectedSourceInputs": false
+    },
+    {
+      "channel": "stable",
+      "openwrtVersion": "24.10.8",
+      "architecture": "aarch64_generic",
+      "pkgtype": "ipk",
+      "sourceIdentity": {
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "gitTree": "5d929bcde9247d6e428ad6ae13645ff1de45136c",
+        "patchedTreeSha256": "a9282b30f8876734cad29b573c0ae57bc90a9e6c483da3e4c25c57d0a5d075a7"
+      },
+      "unexpectedSourceInputs": false
+    },
+    {
+      "channel": "preview",
+      "openwrtVersion": "24.10.8",
+      "architecture": "x86_64",
+      "pkgtype": "ipk",
+      "sourceIdentity": {
+        "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+        "gitTree": "8b3febdaa017659c4a3d4c70a605afbc927df638",
+        "patchedTreeSha256": "6d4738c9fb372861749e48aa76cba3821ef49639a8fe53d1ff163a7af8f9aab4"
+      },
+      "unexpectedSourceInputs": false
+    },
+    {
+      "channel": "stable",
+      "openwrtVersion": "24.10.8",
+      "architecture": "x86_64",
+      "pkgtype": "ipk",
+      "sourceIdentity": {
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "gitTree": "5d929bcde9247d6e428ad6ae13645ff1de45136c",
+        "patchedTreeSha256": "a9282b30f8876734cad29b573c0ae57bc90a9e6c483da3e4c25c57d0a5d075a7"
+      },
+      "unexpectedSourceInputs": false
+    },
+    {
+      "channel": "preview",
+      "openwrtVersion": "25.12.5",
+      "architecture": "aarch64_cortex-a53",
+      "pkgtype": "apk",
+      "sourceIdentity": {
+        "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+        "gitTree": "8b3febdaa017659c4a3d4c70a605afbc927df638",
+        "patchedTreeSha256": "6d4738c9fb372861749e48aa76cba3821ef49639a8fe53d1ff163a7af8f9aab4"
+      },
+      "unexpectedSourceInputs": false
+    },
+    {
+      "channel": "stable",
+      "openwrtVersion": "25.12.5",
+      "architecture": "aarch64_cortex-a53",
+      "pkgtype": "apk",
+      "sourceIdentity": {
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "gitTree": "5d929bcde9247d6e428ad6ae13645ff1de45136c",
+        "patchedTreeSha256": "a9282b30f8876734cad29b573c0ae57bc90a9e6c483da3e4c25c57d0a5d075a7"
+      },
+      "unexpectedSourceInputs": false
+    },
+    {
+      "channel": "preview",
+      "openwrtVersion": "25.12.5",
+      "architecture": "aarch64_generic",
+      "pkgtype": "apk",
+      "sourceIdentity": {
+        "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+        "gitTree": "8b3febdaa017659c4a3d4c70a605afbc927df638",
+        "patchedTreeSha256": "6d4738c9fb372861749e48aa76cba3821ef49639a8fe53d1ff163a7af8f9aab4"
+      },
+      "unexpectedSourceInputs": false
+    },
+    {
+      "channel": "stable",
+      "openwrtVersion": "25.12.5",
+      "architecture": "aarch64_generic",
+      "pkgtype": "apk",
+      "sourceIdentity": {
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "gitTree": "5d929bcde9247d6e428ad6ae13645ff1de45136c",
+        "patchedTreeSha256": "a9282b30f8876734cad29b573c0ae57bc90a9e6c483da3e4c25c57d0a5d075a7"
+      },
+      "unexpectedSourceInputs": false
+    },
+    {
+      "channel": "preview",
+      "openwrtVersion": "25.12.5",
+      "architecture": "x86_64",
+      "pkgtype": "apk",
+      "sourceIdentity": {
+        "baseCommit": "da8389fec7f879b826d8d17cbc6bb98c03ef8462",
+        "gitTree": "8b3febdaa017659c4a3d4c70a605afbc927df638",
+        "patchedTreeSha256": "6d4738c9fb372861749e48aa76cba3821ef49639a8fe53d1ff163a7af8f9aab4"
+      },
+      "unexpectedSourceInputs": false
+    },
+    {
+      "channel": "stable",
+      "openwrtVersion": "25.12.5",
+      "architecture": "x86_64",
+      "pkgtype": "apk",
+      "sourceIdentity": {
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "gitTree": "5d929bcde9247d6e428ad6ae13645ff1de45136c",
+        "patchedTreeSha256": "a9282b30f8876734cad29b573c0ae57bc90a9e6c483da3e4c25c57d0a5d075a7"
+      },
+      "unexpectedSourceInputs": false
+    }
+  ]
+}

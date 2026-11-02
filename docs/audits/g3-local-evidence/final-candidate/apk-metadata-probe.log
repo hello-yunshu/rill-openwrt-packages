@@ -1,0 +1,4 @@
+PACKAGE=rill-runtime-preview
+APK_DEPENDS=!rill-runtime (>=, libc
+PACKAGE=luci-app-performance-manager-all
+APK_DEPENDS=!performance-manager (>=,!luci-app-performance-manager (>=,!performance-manager-rill (>=,!rill-runtime (>=,!rill-runtime-preview (>=,!luci-i18n-performance-manager-zh-cn (>=, libc, luci-base, rpcd, luci-i18n-base-zh-cn, ubus, uci, ucode, ucode-mod-fs, ucode-mod-ubus, ucode-mod-uci, ucode-mod-rtnl, ucode-mod-uloop, ucode-mod-socket, ucode-mod-log, coreutils-timeout

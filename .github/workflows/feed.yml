@@ -34,20 +34,20 @@ jobs:
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
-          pattern: rill-runtime-feed-*-${{ github.event.workflow_run.id }}
+          pattern: rill-runtime-feed-*-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
           path: feed-artifacts
           merge-multiple: true
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
-          name: qualification-evidence-${{ github.event.workflow_run.id }}
+          name: qualification-evidence-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
           path: evidence
       - uses: actions/download-artifact@v8
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
-          pattern: rill-openwrt-signing-tools-*-${{ github.event.workflow_run.id }}
+          pattern: rill-openwrt-signing-tools-*-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
           path: tools-archives
           merge-multiple: true
       - name: Assemble exact package bytes
