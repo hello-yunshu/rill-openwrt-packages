@@ -1,0 +1,80 @@
+Generating index for package ./rill-runtime-v24.10.8-x86_64.ipk
+OK
+Downloading file:///builder/signing-ipk-final/ipk-feed/x86_64/Packages.gz
+Updated list of available packages in /tmp/tmp.WkJzS6qGMq/good-root/var/lib/opkg/rill
+Downloading file:///builder/signing-ipk-final/ipk-feed/x86_64/Packages.sig
+Signature check passed.
+OK
+OK
+Installing rill-runtime (1.5.6-r2) to root...
+Downloading file:///builder/signing-ipk-final/ipk-feed/x86_64/rill-runtime-v24.10.8-x86_64.ipk
+Installing libc (1) to root...
+Downloading file:///builder/signing-ipk-final/ipk-feed/x86_64/./libc_1_all.ipk
+Configuring libc.
+Configuring rill-runtime.
+Removing package rill-runtime from root...
+Cannot open file '/etc/opkg/keys/db0a67f3cbbdf854' for reading
+Downloading file:///builder/signing-ipk-final/ipk-feed/x86_64/Packages.gz
+Updated list of available packages in /tmp/tmp.WkJzS6qGMq/missing-key-root/var/lib/opkg/rill
+Downloading file:///builder/signing-ipk-final/ipk-feed/x86_64/Packages.sig
+Signature check failed.
+Remove wrong Signature file.
+Collected errors:
+ * opkg_install_cmd: Cannot install package rill-runtime.
+Unknown package 'rill-runtime'.
+Cannot open file '/etc/opkg/keys/db0a67f3cbbdf854' for reading
+Downloading file:///builder/signing-ipk-final/ipk-feed/x86_64/Packages.gz
+Updated list of available packages in /tmp/tmp.WkJzS6qGMq/wrong-key-root/var/lib/opkg/rill
+Downloading file:///builder/signing-ipk-final/ipk-feed/x86_64/Packages.sig
+Signature check failed.
+Remove wrong Signature file.
+Collected errors:
+ * opkg_install_cmd: Cannot install package rill-runtime.
+Unknown package 'rill-runtime'.
+verification failed
+Downloading file:///tmp/tmp.WkJzS6qGMq/tampered-packages-leaf/Packages.gz
+Updated list of available packages in /tmp/tmp.WkJzS6qGMq/tampered-packages-root/var/lib/opkg/rill
+Downloading file:///tmp/tmp.WkJzS6qGMq/tampered-packages-leaf/Packages.sig
+Signature check failed.
+Remove wrong Signature file.
+Collected errors:
+ * opkg_install_cmd: Cannot install package rill-runtime.
+Unknown package 'rill-runtime'.
+verification failed
+Downloading file:///tmp/tmp.WkJzS6qGMq/tampered-gzip-leaf/Packages.gz
+Updated list of available packages in /tmp/tmp.WkJzS6qGMq/tampered-gzip-root/var/lib/opkg/rill
+Downloading file:///tmp/tmp.WkJzS6qGMq/tampered-gzip-leaf/Packages.sig
+Signature check failed.
+Remove wrong Signature file.
+Collected errors:
+ * opkg_install_cmd: Cannot install package rill-runtime.
+Unknown package 'rill-runtime'.
+OK
+Downloading file:///tmp/tmp.WkJzS6qGMq/tampered-package-leaf/Packages.gz
+Updated list of available packages in /tmp/tmp.WkJzS6qGMq/tampered-package-root/var/lib/opkg/rill
+Downloading file:///tmp/tmp.WkJzS6qGMq/tampered-package-leaf/Packages.sig
+Signature check passed.
+OK
+Collected errors:
+ * opkg_install_pkg: Checksum or size mismatch for package rill-runtime. Either the opkg or the package index are corrupt. Try 'opkg update'.
+ * opkg_install_cmd: Cannot install package rill-runtime.
+Installing rill-runtime (1.5.6-r2) to root...
+Downloading file:///tmp/tmp.WkJzS6qGMq/tampered-package-leaf/rill-runtime-v24.10.8-x86_64.ipk
+opkg-key args: verify /tmp/tmp.WkJzS6qGMq/good-root/var/lib/opkg/rill.sig /tmp/tmp.WkJzS6qGMq/good-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 1e5504296283c6cd47e59f7e28f1c55ba89dae65e09b0446e13e5fc7a2da2387
+opkg-key args: verify /tmp/tmp.WkJzS6qGMq/good-root/var/lib/opkg/rill.sig /tmp/tmp.WkJzS6qGMq/good-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 1e5504296283c6cd47e59f7e28f1c55ba89dae65e09b0446e13e5fc7a2da2387
+opkg-key args: verify /tmp/tmp.WkJzS6qGMq/good-root/var/lib/opkg/rill.sig /tmp/tmp.WkJzS6qGMq/good-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 1e5504296283c6cd47e59f7e28f1c55ba89dae65e09b0446e13e5fc7a2da2387
+opkg-key args: verify /tmp/tmp.WkJzS6qGMq/missing-key-root/var/lib/opkg/rill.sig /tmp/tmp.WkJzS6qGMq/missing-key-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 1e5504296283c6cd47e59f7e28f1c55ba89dae65e09b0446e13e5fc7a2da2387
+opkg-key args: verify /tmp/tmp.WkJzS6qGMq/wrong-key-root/var/lib/opkg/rill.sig /tmp/tmp.WkJzS6qGMq/wrong-key-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 1e5504296283c6cd47e59f7e28f1c55ba89dae65e09b0446e13e5fc7a2da2387
+opkg-key args: verify /tmp/tmp.WkJzS6qGMq/tampered-packages-root/var/lib/opkg/rill.sig /tmp/tmp.WkJzS6qGMq/tampered-packages-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 990 0017147996973e99521f66a843bb639e11bba0747d430a6b2356753a98e605e5
+opkg-key args: verify /tmp/tmp.WkJzS6qGMq/tampered-gzip-root/var/lib/opkg/rill.sig /tmp/tmp.WkJzS6qGMq/tampered-gzip-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 040ce684f19d869119bce9a360ad12eccdb1ec50a4039f1877d19a7ecffc740f
+opkg-key args: verify /tmp/tmp.WkJzS6qGMq/tampered-package-root/var/lib/opkg/rill.sig /tmp/tmp.WkJzS6qGMq/tampered-package-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 1e5504296283c6cd47e59f7e28f1c55ba89dae65e09b0446e13e5fc7a2da2387
+opkg-key args: verify /tmp/tmp.WkJzS6qGMq/tampered-package-root/var/lib/opkg/rill.sig /tmp/tmp.WkJzS6qGMq/tampered-package-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 1e5504296283c6cd47e59f7e28f1c55ba89dae65e09b0446e13e5fc7a2da2387

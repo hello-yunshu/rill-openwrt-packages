@@ -1,0 +1,46 @@
+{
+  "scope": "real-ipk-opkg-ownership",
+  "libc": "dependency-db-fixture",
+  "routerValidated": false,
+  "results": [
+    {
+      "first": "stable",
+      "packageSha256": "8595fbe02141478224721928c71e7c6b114759702fd35b0a94d0e0a7ea6c20c8",
+      "binarySha256": "f634fc3d52e57e4abaa3905b71f3acf0d99fe003130d8c63ceba58991a396e6e",
+      "rejectionPreservedOwner": true,
+      "removeReinstallPreservedState": true,
+      "explicitSwitchRecovery": true
+    },
+    {
+      "first": "preview",
+      "packageSha256": "64f54079b98d1b135640e888e6b87ad391cce5ea709762a83f8d26943e22813b",
+      "binarySha256": "518f87c893aca58bb8f8845c14d79c6f2aa89c9d5b5b9f71f60cb15199fefe4b",
+      "rejectionPreservedOwner": true,
+      "removeReinstallPreservedState": true,
+      "explicitSwitchRecovery": true
+    }
+  ]
+}
+{
+  "scope": "real-ipk-opkg-ownership",
+  "libc": "dependency-db-fixture",
+  "routerValidated": false,
+  "results": [
+    {
+      "first": "stable",
+      "packageSha256": "130b55d1bbc84a74df05afd76b507cf7bdba21f41876069c80899c8388b53376",
+      "binarySha256": "cab1f9551f0041dc588b5d10ed9a588ecc7688a416cde72faf281d218dd43b6d",
+      "rejectionPreservedOwner": true,
+      "removeReinstallPreservedState": true,
+      "explicitSwitchRecovery": true
+    },
+    {
+      "first": "preview",
+      "packageSha256": "3701caa7b22389aee0756f2612331cd2c8d4a8035a6f4bdeb3beb6a8f0964a1d",
+      "binarySha256": "741a690ebaaa7498de7ed3df469211a5cfa88cce86db6e8cd577aac2f3bf5823",
+      "rejectionPreservedOwner": true,
+      "removeReinstallPreservedState": true,
+      "explicitSwitchRecovery": true
+    }
+  ]
+}

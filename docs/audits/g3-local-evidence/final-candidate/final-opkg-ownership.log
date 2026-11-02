@@ -1,0 +1,23 @@
+{
+  "scope": "real-ipk-opkg-ownership",
+  "libc": "dependency-db-fixture",
+  "routerValidated": false,
+  "results": [
+    {
+      "first": "stable",
+      "packageSha256": "f546adcacc821a9305f7638f7d1c1e69bde0f6cc1e03371a64174f2ca9f26fa8",
+      "binarySha256": "bc9558259b9519583917f685ed3dab561441ad6929b0654293944934cd506f16",
+      "rejectionPreservedOwner": true,
+      "removeReinstallPreservedState": true,
+      "explicitSwitchRecovery": true
+    },
+    {
+      "first": "preview",
+      "packageSha256": "af4c486ed635ec87101bdf5cf9bef862343b1a2b09fb4e2988b54213db623195",
+      "binarySha256": "0f538a37390b0b7d9a523208dc074ec7d729a56586f0e956ff3f28ef6a1f36a0",
+      "rejectionPreservedOwner": true,
+      "removeReinstallPreservedState": true,
+      "explicitSwitchRecovery": true
+    }
+  ]
+}

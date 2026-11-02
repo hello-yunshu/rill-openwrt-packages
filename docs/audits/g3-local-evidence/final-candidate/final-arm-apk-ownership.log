@@ -1,0 +1,46 @@
+{
+  "scope": "real-apk-ownership",
+  "libc": "unsigned-empty-dependency-fixture",
+  "scriptsRun": false,
+  "signatureQualification": false,
+  "routerValidated": false,
+  "results": [
+    {
+      "first": "stable",
+      "packageSha256": "3630e1773992a8fd04f842b865a85ce86a81251daf91f1d475a22c4538cfefde",
+      "binarySha256": "10fda9bf3db076426f3c4bd1f0eeab3dbf1806a0862d333ba1d6e2531c295be2",
+      "rejectedInstallPreservedOwnerAndWorld": true,
+      "removeReinstallAndExplicitSwitchPreservedState": true
+    },
+    {
+      "first": "preview",
+      "packageSha256": "34071774b20e386c5bd03fa523b4021c25ee874e92690ea7562a1394ba918132",
+      "binarySha256": "451d6b8bd6d23e0ffc60c6b516d3b05104972c0725101eb534fc60f05a19d862",
+      "rejectedInstallPreservedOwnerAndWorld": true,
+      "removeReinstallAndExplicitSwitchPreservedState": true
+    }
+  ]
+}
+{
+  "scope": "real-apk-ownership",
+  "libc": "unsigned-empty-dependency-fixture",
+  "scriptsRun": false,
+  "signatureQualification": false,
+  "routerValidated": false,
+  "results": [
+    {
+      "first": "stable",
+      "packageSha256": "680a3a5b6bf38cafd660415ed090a52d4df5ef536daf9942f2cefec12665cb46",
+      "binarySha256": "330607eedc5e341708a3be38c2a7850b778169f1ae70912becd760cdcb331da6",
+      "rejectedInstallPreservedOwnerAndWorld": true,
+      "removeReinstallAndExplicitSwitchPreservedState": true
+    },
+    {
+      "first": "preview",
+      "packageSha256": "2d1ec549277591073d0082c2043e253ed5c57c6df4915af2963cb529a4ec93d6",
+      "binarySha256": "4f17410cc7f43b159fd5faa1db0b2fa43c97f107e2064f25499b6edb6e9f9b08",
+      "rejectedInstallPreservedOwnerAndWorld": true,
+      "removeReinstallAndExplicitSwitchPreservedState": true
+    }
+  ]
+}

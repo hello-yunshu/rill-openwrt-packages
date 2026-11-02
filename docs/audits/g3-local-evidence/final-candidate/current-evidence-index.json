@@ -1,0 +1,173 @@
+{
+  "complete": false,
+  "releaseEligible": false,
+  "scope": "twelve real local SDK packages and isolated runtime/package-manager observations; no hosted run or immutable candidate commit",
+  "targetRecordCount": 12,
+  "remaining": [
+    "hosted exact candidate commit/run/attempt",
+    "consumer locks bound to the new hosted qualification"
+  ],
+  "files": [
+    {
+      "path": "output-final/24.10.8-aarch64_generic/target-qualification-preview-v24.10.8-aarch64_generic.json",
+      "sha256": "850438b1ccceb36d590a3e00db48859a23b8a4861261f6eac9ac7f18b418318c"
+    },
+    {
+      "path": "output-final/24.10.8-aarch64_generic/security-audit-target-qualification-preview-v24.10.8-aarch64_generic.json",
+      "sha256": "2524b20a21675b380b6dc86c31131344ecb23befd8773d11272976500e511675"
+    },
+    {
+      "path": "output-final/24.10.8-aarch64_generic/security-audit-target-qualification-stable-v24.10.8-aarch64_generic.json",
+      "sha256": "2524b20a21675b380b6dc86c31131344ecb23befd8773d11272976500e511675"
+    },
+    {
+      "path": "output-final/24.10.8-aarch64_generic/target-qualification-stable-v24.10.8-aarch64_generic.json",
+      "sha256": "4a264092227e696ab86b026ed384534056f17b5bdcb320a8aad0aa4567405c79"
+    },
+    {
+      "path": "output-final/24.10.8-x86_64/security-audit-target-qualification-preview-v24.10.8-x86_64.json",
+      "sha256": "2524b20a21675b380b6dc86c31131344ecb23befd8773d11272976500e511675"
+    },
+    {
+      "path": "output-final/24.10.8-x86_64/security-audit-target-qualification-stable-v24.10.8-x86_64.json",
+      "sha256": "2524b20a21675b380b6dc86c31131344ecb23befd8773d11272976500e511675"
+    },
+    {
+      "path": "output-final/24.10.8-x86_64/target-qualification-preview-v24.10.8-x86_64.json",
+      "sha256": "fdb6a32846e82135b74ae91d92bb61e7d605c038f71c87c1cba9631d5dd3a8ec"
+    },
+    {
+      "path": "output-final/24.10.8-x86_64/target-qualification-stable-v24.10.8-x86_64.json",
+      "sha256": "11d601a03ef7e77f0727858ad0f51dc9e708c375c8511548b6b5c08bda56fde4"
+    },
+    {
+      "path": "output-final/25.12.5-aarch64_generic/target-qualification-preview-v25.12.5-aarch64_generic.json",
+      "sha256": "2027638b8632f6d45c11dc62938baa5e0d75a9d46933ab70247071546bea54cf"
+    },
+    {
+      "path": "output-final/25.12.5-aarch64_generic/security-audit-target-qualification-preview-v25.12.5-aarch64_generic.json",
+      "sha256": "8bd15205fd9e534164e7b64c8e6203a6cd9fbb6b7257622c5c85e81f73dbae12"
+    },
+    {
+      "path": "output-final/25.12.5-aarch64_generic/security-audit-target-qualification-stable-v25.12.5-aarch64_generic.json",
+      "sha256": "8bd15205fd9e534164e7b64c8e6203a6cd9fbb6b7257622c5c85e81f73dbae12"
+    },
+    {
+      "path": "output-final/25.12.5-aarch64_generic/target-qualification-stable-v25.12.5-aarch64_generic.json",
+      "sha256": "75b5f9be9eb6a783875b16e38152be663f2572d51d9d562330639ee253b8e670"
+    },
+    {
+      "path": "output-final/25.12.5-aarch64_cortex-a53/security-audit-target-qualification-stable-v25.12.5-aarch64_cortex-a53.json",
+      "sha256": "8bd15205fd9e534164e7b64c8e6203a6cd9fbb6b7257622c5c85e81f73dbae12"
+    },
+    {
+      "path": "output-final/25.12.5-aarch64_cortex-a53/target-qualification-stable-v25.12.5-aarch64_cortex-a53.json",
+      "sha256": "6e9941c201eb447a1a8704faa35616b439fbefbe2a80b48284f855f3490aad26"
+    },
+    {
+      "path": "output-final/25.12.5-aarch64_cortex-a53/security-audit-target-qualification-preview-v25.12.5-aarch64_cortex-a53.json",
+      "sha256": "8bd15205fd9e534164e7b64c8e6203a6cd9fbb6b7257622c5c85e81f73dbae12"
+    },
+    {
+      "path": "output-final/25.12.5-aarch64_cortex-a53/target-qualification-preview-v25.12.5-aarch64_cortex-a53.json",
+      "sha256": "51fefd8b957649ae7d6586a12e3fdeb133eedb582551f62163db0eeacda3a3fe"
+    },
+    {
+      "path": "output-final/24.10.8-aarch64_cortex-a53/security-audit-target-qualification-preview-v24.10.8-aarch64_cortex-a53.json",
+      "sha256": "8bd15205fd9e534164e7b64c8e6203a6cd9fbb6b7257622c5c85e81f73dbae12"
+    },
+    {
+      "path": "output-final/24.10.8-aarch64_cortex-a53/security-audit-target-qualification-stable-v24.10.8-aarch64_cortex-a53.json",
+      "sha256": "8bd15205fd9e534164e7b64c8e6203a6cd9fbb6b7257622c5c85e81f73dbae12"
+    },
+    {
+      "path": "output-final/24.10.8-aarch64_cortex-a53/target-qualification-stable-v24.10.8-aarch64_cortex-a53.json",
+      "sha256": "203d3438eddaff27ed8a014febe7a790a1d9e8915f08260a294bbba3975bc9b2"
+    },
+    {
+      "path": "output-final/24.10.8-aarch64_cortex-a53/target-qualification-preview-v24.10.8-aarch64_cortex-a53.json",
+      "sha256": "c0622860a6e845495b32e9cd1ff5d46f7a795b923243c58f5df19d8762805609"
+    },
+    {
+      "path": "output-final/25.12.5-x86_64/security-audit-target-qualification-preview-v25.12.5-x86_64.json",
+      "sha256": "8bd15205fd9e534164e7b64c8e6203a6cd9fbb6b7257622c5c85e81f73dbae12"
+    },
+    {
+      "path": "output-final/25.12.5-x86_64/target-qualification-preview-v25.12.5-x86_64.json",
+      "sha256": "4f8349c804d62726966a6b398a70ac7f9a62c271eeb41703452907c6b203a785"
+    },
+    {
+      "path": "output-final/25.12.5-x86_64/security-audit-target-qualification-stable-v25.12.5-x86_64.json",
+      "sha256": "8bd15205fd9e534164e7b64c8e6203a6cd9fbb6b7257622c5c85e81f73dbae12"
+    },
+    {
+      "path": "output-final/25.12.5-x86_64/target-qualification-stable-v25.12.5-x86_64.json",
+      "sha256": "9e43375f51dbd1e045d4a1ee26c42ecd79f1ff255f35901032490430f21d6e54"
+    },
+    {
+      "path": "qualification.local.json",
+      "sha256": "905909b35b21f2ed32ebd454d007aed331f8680903f87085149c1cd0cd46e42f"
+    },
+    {
+      "path": "local-matrix-validation.json",
+      "sha256": "383026ca6716b8c97dbbba01e46b62800f2de2d9d57dbab81995ca38ebec5c01"
+    },
+    {
+      "path": "local-matrix-verification.log",
+      "sha256": "828a521813322926d826a33a8a4505853d4ad3380f670a7cf4eec16ffc31beeb"
+    },
+    {
+      "path": "source-set-revalidation.json",
+      "sha256": "62edd58de6ab04c44deedbcf0f537ec0d70a00fdcf3725dc3c733433bd76051e"
+    },
+    {
+      "path": "source-set-revalidation-v4.log",
+      "sha256": "cc14b374fdc9a77d3c3ae76779956ac6d6322a423f1777272726b8fd6bfac206"
+    },
+    {
+      "path": "after-final-x86-reinspect.log",
+      "sha256": "97c491a2e60cc3f665f4e0bdf31a64ab7aa11d255d140d3fd2a81e138fd99944"
+    },
+    {
+      "path": "after-final-apk-x86.log",
+      "sha256": "3d31fcdd642613881bc96ab59fd2d934a6b9588647a27cd86199baab84ec1dd0"
+    },
+    {
+      "path": "final-arm-generic-runtime.log",
+      "sha256": "76558fbbc0a9f2d5a6efd0ac08887084777028a1628688959cabfe0b1f36ae52"
+    },
+    {
+      "path": "final-arm-filogic-runtime.log",
+      "sha256": "76558fbbc0a9f2d5a6efd0ac08887084777028a1628688959cabfe0b1f36ae52"
+    },
+    {
+      "path": "final-arm-apk-runtime.log",
+      "sha256": "0973e07226abd864f8144ea110dc354cb0c4ee5523cef7da8a797b5758c8b145"
+    },
+    {
+      "path": "final-arm-apk-ownership.log",
+      "sha256": "f7c3b85fedb05986590bf667cef1c90964680550b4ebf5a6eae0a6787f77fde2"
+    },
+    {
+      "path": "final-arm-ipk-ownership.log",
+      "sha256": "6ee39ff6cf1cb53059fa2b9c2d87e252b254988fc792429ba77ca26fe7be55eb"
+    },
+    {
+      "path": "final-opkg-signing.log",
+      "sha256": "b2e984dbd8466b0ca1bc2abc413e22d031d19b8cf426ce502a5a93cdfd69e8ca"
+    },
+    {
+      "path": "final-apk-signing.log",
+      "sha256": "24c75fcb4996f3c9464105062b979b1324e34d4ed4d31a449d97b483d4550727"
+    },
+    {
+      "path": "final-ipk-upgrades.log",
+      "sha256": "453fdc2077b96c736481c8dc029166f6afa2d8cab601e98d3d04d29f9e357b85"
+    },
+    {
+      "path": "runtime-smoke/final-apk-upgrades/results.json",
+      "sha256": "31f0cecb8325df2c93b078dec615158a1961ca7dc577b7deb03980fd93c48bf3"
+    }
+  ],
+  "pmOwnershipEvidence": "luci-app-performance-manager/docs/audits/g3-runtime-package-evidence/index.json"
+}

@@ -1,0 +1,29 @@
+OK
+Cannot open file '/tmp/tmp.H7PKs0UMbl/missing.pub' for reading
+verification failed
+verification failed
+Index has 2 packages (of which 2 are new)
+(1/2) Installing libc (1.0)
+(2/2) Installing rill-runtime (1.5.6-r2)
+OK: 7474 KiB in 2 packages
+(1/2) Purging rill-runtime (1.5.6-r2)
+(2/2) Purging libc (1.0)
+OK: 0 B in 0 packages
+ [file:///tmp/tmp.H7PKs0UMbl/packages.adb]
+OK: 2 distinct packages available
+WARNING: opening file:///tmp/tmp.H7PKs0UMbl/packages.adb: UNTRUSTED signature
+ERROR: unable to select packages:
+  rill-runtime (no such package):
+    required by: world[rill-runtime]
+WARNING: opening file:///tmp/tmp.H7PKs0UMbl/packages.adb: UNTRUSTED signature
+ERROR: unable to select packages:
+  rill-runtime (no such package):
+    required by: world[rill-runtime]
+WARNING: opening file:///tmp/tmp.H7PKs0UMbl/tampered.adb: file format is invalid or inconsistent
+ERROR: unable to select packages:
+  rill-runtime (no such package):
+    required by: world[rill-runtime]
+(1/2) Installing libc (1.0)
+(2/2) Installing rill-runtime (1.5.6-r2)
+ERROR: rill-runtime-1.5.6-r2: file integrity error
+1 error; 0 B in 1 packages

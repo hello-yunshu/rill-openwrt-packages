@@ -1,0 +1,4 @@
+libc
+rill-runtime
+PASS negative dependency fixture rejected
+b2cc2fe6b65da9f29755408be267a08ff24b92d9d29a532393aa4af2e7308ab0  /builder/runtime-smoke/apk-negative-solver-retry/usr/bin/rill-runtime

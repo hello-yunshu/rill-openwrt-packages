@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/rp/scripts/verify_apk_ownership.py", line 94, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/rp/scripts/verify_apk_ownership.py", line 91, in main
+    print(json.dumps(verify(args.apk,args.stable,args.preview,args.output),indent=2))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/rp/scripts/verify_apk_ownership.py", line 37, in verify
+    assert '!rill-runtime>=0' in metadata['preview'].get('depends',[]), 'Preview APK has no explicit Stable negative dependency'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Preview APK has no explicit Stable negative dependency

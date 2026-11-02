@@ -1,0 +1,65 @@
+Generating index for package ./rill-runtime-v24.10.8-x86_64.ipk
+OK
+Downloading file:///builder/signing-ipk/ipk-feed/x86_64/Packages.gz
+Updated list of available packages in /tmp/tmp.GNoJLo7ZOY/good-root/var/lib/opkg/rill
+Downloading file:///builder/signing-ipk/ipk-feed/x86_64/Packages.sig
+Signature check passed.
+OK
+OK
+Installing rill-runtime (1.5.6-r2) to root...
+Downloading file:///builder/signing-ipk/ipk-feed/x86_64/rill-runtime-v24.10.8-x86_64.ipk
+Installing libc (1) to root...
+Downloading file:///builder/signing-ipk/ipk-feed/x86_64/./libc_1_all.ipk
+Configuring libc.
+Configuring rill-runtime.
+Removing package rill-runtime from root...
+Cannot open file '/etc/opkg/keys/40f38fa3f2bb6b2b' for reading
+Downloading file:///builder/signing-ipk/ipk-feed/x86_64/Packages.gz
+Updated list of available packages in /tmp/tmp.GNoJLo7ZOY/missing-key-root/var/lib/opkg/rill
+Downloading file:///builder/signing-ipk/ipk-feed/x86_64/Packages.sig
+Signature check failed.
+Remove wrong Signature file.
+Collected errors:
+ * opkg_install_cmd: Cannot install package rill-runtime.
+Unknown package 'rill-runtime'.
+Cannot open file '/etc/opkg/keys/40f38fa3f2bb6b2b' for reading
+Downloading file:///builder/signing-ipk/ipk-feed/x86_64/Packages.gz
+Updated list of available packages in /tmp/tmp.GNoJLo7ZOY/wrong-key-root/var/lib/opkg/rill
+Downloading file:///builder/signing-ipk/ipk-feed/x86_64/Packages.sig
+Signature check failed.
+Remove wrong Signature file.
+Collected errors:
+ * opkg_install_cmd: Cannot install package rill-runtime.
+Unknown package 'rill-runtime'.
+verification failed
+Downloading file:///tmp/tmp.GNoJLo7ZOY/tampered-packages-leaf/Packages.gz
+Updated list of available packages in /tmp/tmp.GNoJLo7ZOY/tampered-packages-root/var/lib/opkg/rill
+Downloading file:///tmp/tmp.GNoJLo7ZOY/tampered-packages-leaf/Packages.sig
+Signature check failed.
+Remove wrong Signature file.
+Collected errors:
+ * opkg_install_cmd: Cannot install package rill-runtime.
+Unknown package 'rill-runtime'.
+verification failed
+Downloading file:///tmp/tmp.GNoJLo7ZOY/tampered-gzip-leaf/Packages.gz
+Updated list of available packages in /tmp/tmp.GNoJLo7ZOY/tampered-gzip-root/var/lib/opkg/rill
+Downloading file:///tmp/tmp.GNoJLo7ZOY/tampered-gzip-leaf/Packages.sig
+Signature check failed.
+Remove wrong Signature file.
+Collected errors:
+ * opkg_install_cmd: Cannot install package rill-runtime.
+Unknown package 'rill-runtime'.
+opkg-key args: verify /tmp/tmp.GNoJLo7ZOY/good-root/var/lib/opkg/rill.sig /tmp/tmp.GNoJLo7ZOY/good-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 f1370700418fa6456f5970464daeaf3f204ae5b434888ee63035055665911fd4
+opkg-key args: verify /tmp/tmp.GNoJLo7ZOY/good-root/var/lib/opkg/rill.sig /tmp/tmp.GNoJLo7ZOY/good-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 f1370700418fa6456f5970464daeaf3f204ae5b434888ee63035055665911fd4
+opkg-key args: verify /tmp/tmp.GNoJLo7ZOY/good-root/var/lib/opkg/rill.sig /tmp/tmp.GNoJLo7ZOY/good-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 f1370700418fa6456f5970464daeaf3f204ae5b434888ee63035055665911fd4
+opkg-key args: verify /tmp/tmp.GNoJLo7ZOY/missing-key-root/var/lib/opkg/rill.sig /tmp/tmp.GNoJLo7ZOY/missing-key-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 f1370700418fa6456f5970464daeaf3f204ae5b434888ee63035055665911fd4
+opkg-key args: verify /tmp/tmp.GNoJLo7ZOY/wrong-key-root/var/lib/opkg/rill.sig /tmp/tmp.GNoJLo7ZOY/wrong-key-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 f1370700418fa6456f5970464daeaf3f204ae5b434888ee63035055665911fd4
+opkg-key args: verify /tmp/tmp.GNoJLo7ZOY/tampered-packages-root/var/lib/opkg/rill.sig /tmp/tmp.GNoJLo7ZOY/tampered-packages-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 990 bef17bbbabecfca683dd587ec90e08904ce0cce81a2d36920882a64d70c25d23
+opkg-key args: verify /tmp/tmp.GNoJLo7ZOY/tampered-gzip-root/var/lib/opkg/rill.sig /tmp/tmp.GNoJLo7ZOY/tampered-gzip-root/var/lib/opkg/rill
+opkg-key message: gzip compressed data, max compression, from Unix, original size modulo 2^32 983 92f2368993224db560f8de8afa96fd642178a8329e2eade3445cef30f7365e21

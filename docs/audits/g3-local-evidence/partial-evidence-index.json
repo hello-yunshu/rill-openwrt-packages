@@ -1,0 +1,142 @@
+{
+  "scope": "partial-local-g3-evidence",
+  "releaseEligible": false,
+  "complete": false,
+  "observedAt": "2026-10-15T18:40:23.078248+00:00",
+  "packageCommit": null,
+  "qualificationRun": null,
+  "qualifiedTargetRecords": 0,
+  "files": [
+    {
+      "path": "arm-runtime-smoke.log",
+      "sha256": "9b14ce4ae958c908da1fe31f93716caf7cfb2eea0265ef85616de1ba7e629c40"
+    },
+    {
+      "path": "arm-wasm-trust.log",
+      "sha256": "43d11621d6a88316c1a7271be29a7bb1338779ee9bdebacce74f75500ec805d1"
+    },
+    {
+      "path": "audit-full-diagnosis.json",
+      "sha256": "ee90a5ec795d33aaff77ebd2654f8f61b040740a60efccbfd49432a1813954b3"
+    },
+    {
+      "path": "audit-full-diagnosis.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "cf-fallback-regression.log",
+      "sha256": "9470690ced75462dbf76fb54e924d0c755a9b800310918069f35b787cb4593f6"
+    },
+    {
+      "path": "ipk-upgrades.log",
+      "sha256": "edb9974d4d9379fbdec7e92a1f7e66b9c8acc45d51e13b524b7ff44a5bf8544e"
+    },
+    {
+      "path": "opkg-owner-smoke.log",
+      "sha256": "e1afc1215a8e476d6f23f9739b7caa68c146e741aedac4321c8ad58446e90571"
+    },
+    {
+      "path": "opkg-ownership-qualified.log",
+      "sha256": "d27d46e3476bf4a4ff2643175f3d362113b5e49901fd8ec66b2b518ec9fcec51"
+    },
+    {
+      "path": "opkg-recovery.log",
+      "sha256": "0cc8540898b9c6343cbb7173b4d5aa79a4f8d8da541aaaf0513e2116cdc3f598"
+    },
+    {
+      "path": "opkg-signing.log",
+      "sha256": "3aa3cc25cc1a1045551600e912a8eeee79a8da77773d08ee2aa4e01f5ead2665"
+    },
+    {
+      "path": "opkg-switch-recovery.log",
+      "sha256": "2ff7a65e699edc1074bb571a4880664d2f18771b0ab6779a801eae5122c76d62"
+    },
+    {
+      "path": "pm-payload-harness.log",
+      "sha256": "9b14ce4ae958c908da1fe31f93716caf7cfb2eea0265ef85616de1ba7e629c40"
+    },
+    {
+      "path": "pm-rootfs-compat.log",
+      "sha256": "362a3fc201b733e1143edd2d773cd9ca812e63ae0c86c66c34f6881adf7c21fc"
+    },
+    {
+      "path": "real-apk-parser-regression.json",
+      "sha256": "1b0fed000b5a5c315c9cd10c6a8b99f65c78db339d473c49785def575397a53d"
+    },
+    {
+      "path": "rp-with-ownership-tests.log",
+      "sha256": "397e0f8094808877543481abbe5e7ca83ae8a5583f82b22ce7a4c1cf1510c48c"
+    },
+    {
+      "path": "runtime-smoke/arm/pm-stable.json",
+      "sha256": "43641f14d6129337f7e7319adc67f3b826e7956e0dba94f14785b1ac3b783e94"
+    },
+    {
+      "path": "runtime-smoke/arm/wasm-negative-results.json",
+      "sha256": "4fbf9d3cfb6895a036bc59ec1a4c8449f90ecf483d3a86bf746f7bf8f11085f5"
+    },
+    {
+      "path": "runtime-smoke/ipk-upgrades/results.json",
+      "sha256": "40be558b87e038a6810ea79f036d2fcaac59348c95abd6e415365a3abebaee49"
+    },
+    {
+      "path": "runtime-smoke/opkg-ownership-qualified/results.json",
+      "sha256": "d27d46e3476bf4a4ff2643175f3d362113b5e49901fd8ec66b2b518ec9fcec51"
+    },
+    {
+      "path": "runtime-smoke/x86/pm-stable.json",
+      "sha256": "e2916b142c99e4edb8f7a6776a4c214ce96b25744ebfcbe5459b27124ee0362b"
+    },
+    {
+      "path": "runtime-smoke/x86/preview-wasm.jsonl",
+      "sha256": "617ef526e9c4fcfd2871941986c70436c21b9fad3e6d110ceb649d0ab658be38"
+    },
+    {
+      "path": "runtime-smoke/x86/stable-wasm.jsonl",
+      "sha256": "617ef526e9c4fcfd2871941986c70436c21b9fad3e6d110ceb649d0ab658be38"
+    },
+    {
+      "path": "runtime-smoke/x86/wasm-negative-results.json",
+      "sha256": "4fbf9d3cfb6895a036bc59ec1a4c8449f90ecf483d3a86bf746f7bf8f11085f5"
+    },
+    {
+      "path": "targets/target-qualification-preview-v24.10.8-aarch64_generic.json",
+      "sha256": "42c0ab0201e3f3397bb5e48b51c83e5eac4e655e323ff5e2a9d7aac3840ec6c7"
+    },
+    {
+      "path": "targets/target-qualification-preview-v24.10.8-x86_64.json",
+      "sha256": "670de7e3e324bdb27ca73628dd6c673eb9785448009ae66b06df159f3a8028ab"
+    },
+    {
+      "path": "targets/target-qualification-stable-v24.10.8-aarch64_generic.json",
+      "sha256": "1c49ebcf304cfacfce20ffe972a38c6cf28ced9b1595bdfdec6254217fda9a59"
+    },
+    {
+      "path": "targets/target-qualification-stable-v24.10.8-x86_64.json",
+      "sha256": "2645078ad3b68f3c02cb780726f25b05f94d40a45016ea7d81109d9f2f1c0d46"
+    },
+    {
+      "path": "x86-consumer-smoke.log",
+      "sha256": "16e9596578e922d501ccb74a1b762c7bcf0ae82416ec36e067c5d1452577161b"
+    },
+    {
+      "path": "x86-wasm-negative-v2.log",
+      "sha256": "43d11621d6a88316c1a7271be29a7bb1338779ee9bdebacce74f75500ec805d1"
+    },
+    {
+      "path": "zip-crates-current.json",
+      "sha256": "33a256a88dd6155ca5625097ac1b6ea0263770c187a96c427ea052b23ae03968"
+    }
+  ],
+  "open": [
+    "zip dependency replacement and complete new-source requalification",
+    "remaining SDK matrix",
+    "APK ownership and signing",
+    "historical upgrades",
+    "PM full/split ownership",
+    "hosted exact-commit qualification",
+    "consumer lock updates"
+  ],
+  "historicalCandidateTargetRecords": 4,
+  "securityGate": "OPEN: fresh index reports zip 2.4.2 yanked; previous candidate records cannot qualify final patched inputs"
+}

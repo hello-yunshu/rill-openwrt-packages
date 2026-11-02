@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "channel": "stable",
+  "openwrtVersion": "25.12.5",
+  "target": "armsr",
+  "subtarget": "armv8",
+  "sdkPrefix": "armsr-armv8",
+  "packageArch": "aarch64_generic",
+  "pkgtype": "apk",
+  "rustTarget": "aarch64-unknown-linux-musl",
+  "elfMachine": "AArch64",
+  "supportTier": "p0-openwrt-package",
+  "enabled": true,
+  "artifact": "rill-runtime-v25.12.5-aarch64_generic.apk",
+  "sha256": "3630e1773992a8fd04f842b865a85ce86a81251daf91f1d475a22c4538cfefde",
+  "binary": "/usr/bin/rill-runtime",
+  "binarySha256": "10fda9bf3db076426f3c4bd1f0eeab3dbf1806a0862d333ba1d6e2531c295be2",
+  "binarySize": 5704307,
+  "interpreter": "/lib/ld-musl-aarch64.so.1",
+  "packageMetadata": {
+    "name": "rill-runtime",
+    "version": "1.5.6-r2",
+    "architecture": "aarch64_generic"
+  },
+  "packageMetadataFiles": [
+    "lib/apk/packages/rill-runtime.list"
+  ],
+  "elfClass": "ELF64",
+  "endianness": "little",
+  "package": {
+    "name": "rill-runtime",
+    "version": "1.5.6",
+    "release": 2,
+    "canonicalRecipe": "package/rill-runtime/Makefile",
+    "binary": "/usr/bin/rill-runtime",
+    "recipe": "package/rill-runtime/Makefile"
+  },
+  "upstream": {
+    "repository": "hello-yunshu/rill-ml",
+    "tag": "v1.5.6",
+    "version": "1.5.6",
+    "commit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+    "releaseUrl": "https://github.com/hello-yunshu/rill-ml/releases/tag/v1.5.6",
+    "archiveUrl": "https://github.com/hello-yunshu/rill-ml/archive/refs/tags/v1.5.6.tar.gz",
+    "archiveSha256": "c06a792811d1f08aa7b640c10ee36047c44f825cf7272aa0f75c42ab60806a84",
+    "publishedAt": "2026-08-28T16:39:11Z",
+    "sourcePatches": [
+      {
+        "path": "package/rill-runtime/patches/010-wasm-engine-security.patch",
+        "sha256": "747512de30dc2a927bbe8950e8c6fc05f8ba5559462dfd88c8780af9433e7fe9",
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "patchedSourceLockSha256": "e6285fe82e14cc72d4257592a6e8bb1a3b7b977588f48c4413615d26071a92de",
+        "purpose": "G2-qualified default WASM engine security backport; preserve channel wire/state semantics"
+      },
+      {
+        "path": "package/rill-runtime/patches/020-archive-dependency.patch",
+        "sha256": "6d324e108eb3afb56870b6761c44a818cf6b072a495087a4de1be1a00cbf77ef",
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "patchedSourceLockSha256": "e6285fe82e14cc72d4257592a6e8bb1a3b7b977588f48c4413615d26071a92de",
+        "purpose": "Replace yanked ZIP dependency, preserving signed archive and Runtime protocol compatibility; lock digest covers the complete ordered patch set."
+      }
+    ]
+  },
+  "qualificationState": "PASS",
+  "build": {
+    "rustToolchain": "1.96.0",
+    "sourceLockSha256": "e6285fe82e14cc72d4257592a6e8bb1a3b7b977588f48c4413615d26071a92de",
+    "runtimeFeatures": [
+      "wasm"
+    ],
+    "defaultFeatures": true,
+    "sourcePatches": [
+      {
+        "path": "package/rill-runtime/patches/010-wasm-engine-security.patch",
+        "sha256": "747512de30dc2a927bbe8950e8c6fc05f8ba5559462dfd88c8780af9433e7fe9",
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "patchedSourceLockSha256": "e6285fe82e14cc72d4257592a6e8bb1a3b7b977588f48c4413615d26071a92de",
+        "purpose": "G2-qualified default WASM engine security backport; preserve channel wire/state semantics"
+      },
+      {
+        "path": "package/rill-runtime/patches/020-archive-dependency.patch",
+        "sha256": "6d324e108eb3afb56870b6761c44a818cf6b072a495087a4de1be1a00cbf77ef",
+        "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+        "patchedSourceLockSha256": "e6285fe82e14cc72d4257592a6e8bb1a3b7b977588f48c4413615d26071a92de",
+        "purpose": "Replace yanked ZIP dependency, preserving signed archive and Runtime protocol compatibility; lock digest covers the complete ordered patch set."
+      }
+    ],
+    "verifiedSource": {
+      "baseCommit": "b990cd7043d313b0ff29c9693f091a94a5bdaf47",
+      "gitTree": "5d929bcde9247d6e428ad6ae13645ff1de45136c",
+      "patchedTreeSha256": "a9282b30f8876734cad29b573c0ae57bc90a9e6c483da3e4c25c57d0a5d075a7"
+    }
+  },
+  "sdk": {
+    "configurationLogSha256": "09366011a83b07cf6feb2f8b06e71310056753a8a8fbdf9d288cca424f485be9",
+    "archiveSha256": "1b0316604a3e820b2b008a1baff3f9dac6716af942bef800930e58c7de98c98b",
+    "openwrtVersion": "25.12.5",
+    "feeds": {
+      "base": {
+        "source": "https://git.openwrt.org/openwrt/openwrt.git^f0a60eee2fe051741c643ea6118718aae1ef17fb",
+        "commit": "f0a60eee2fe051741c643ea6118718aae1ef17fb"
+      },
+      "packages": {
+        "source": "https://git.openwrt.org/feed/packages.git^5caa62e0bc9f7fb9b0c12a23267bceb7724214dd",
+        "commit": "5caa62e0bc9f7fb9b0c12a23267bceb7724214dd"
+      }
+    }
+  },
+  "securityAudit": {
+    "sourceLockSha256": "e6285fe82e14cc72d4257592a6e8bb1a3b7b977588f48c4413615d26071a92de",
+    "database": {
+      "advisory-count": 1329,
+      "last-commit": "479c888ce4401313bca61ba4aba2d0f6244c4a09",
+      "last-updated": "2026-10-16T08:29:44+02:00"
+    },
+    "vulnerabilityCount": 0,
+    "warnings": {},
+    "ignoredAdvisories": []
+  },
+  "resolvedWasmtime": {
+    "engine": "wasmtime v49.0.3",
+    "features": [
+      "component-model",
+      "cranelift",
+      "once_cell",
+      "parallel-compilation",
+      "pulley",
+      "runtime",
+      "std",
+      "wasmtime-jit-icache-coherence"
+    ]
+  }
+}

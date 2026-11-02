@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${RUST_TOOLCHAIN:=1.94.0}"
+: "${RUST_TOOLCHAIN:=$(python3 "$(dirname "${BASH_SOURCE[0]}")/build_toolchain.py")}"
 : "${RUST_STAGING_DIR:?RUST_STAGING_DIR is required}"
 
 rustc_path="$(rustup which rustc --toolchain "$RUST_TOOLCHAIN")"

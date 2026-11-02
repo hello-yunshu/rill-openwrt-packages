@@ -1,0 +1,44 @@
+{
+  "scope": "real APK upgrade plus old-trained Native state reopened by new SDK bytes",
+  "libc": "empty dependency fixture",
+  "packageScripts": "NOT RUN",
+  "deviceQualification": false,
+  "results": [
+    {
+      "channel": "stable",
+      "oldMetadata": {
+        "name": "rill-runtime",
+        "version": "1.5.6-r1",
+        "architecture": "x86_64"
+      },
+      "newMetadata": {
+        "name": "rill-runtime",
+        "version": "1.5.6-r2",
+        "architecture": "x86_64"
+      },
+      "oldSha256": "bd7597f3b956e45c5bc7bf3baa1766561f0668756d0be2c709380b2307fe8470",
+      "newSha256": "37839a4703f08013ff986291974338f7993c75c6c83ee7d05b03883058a5efa5",
+      "trainedStateBeforeUpgradeSha256": "e4c1deb73efd24b0ff25a2ddc8b0c016545fca5eca6a9554a8259b9d876d2e57",
+      "stateGenerationPreserved": 2,
+      "upgradeAndRemoveReinstallPreservedTrainedStateAndUserConfig": true
+    },
+    {
+      "channel": "preview",
+      "oldMetadata": {
+        "name": "rill-runtime-preview",
+        "version": "1.5.6-r2",
+        "architecture": "x86_64"
+      },
+      "newMetadata": {
+        "name": "rill-runtime-preview",
+        "version": "1.5.6-r3",
+        "architecture": "x86_64"
+      },
+      "oldSha256": "36ced00796b0d4aacd62eb3b48f10eebb8a1686b89d36925b1d3e292d4f00114",
+      "newSha256": "3250e62b71549bb5c4325bf4362222c3d568712004d459977df775d8a522f8b4",
+      "trainedStateBeforeUpgradeSha256": "5ff3fea5b32391b219320872cc450e2575174ab4ac50c806ee932c57ea6aa990",
+      "stateGenerationPreserved": 2,
+      "upgradeAndRemoveReinstallPreservedTrainedStateAndUserConfig": true
+    }
+  ]
+}

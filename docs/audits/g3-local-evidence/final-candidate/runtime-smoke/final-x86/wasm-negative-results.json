@@ -1,0 +1,38 @@
+[
+  {
+    "channel": "stable",
+    "scenario": "wrong-model-key",
+    "exitCode": 1,
+    "stderr": "rill-runtime: model package error: signature verification failed\n"
+  },
+  {
+    "channel": "stable",
+    "scenario": "wrong-handler-key",
+    "exitCode": 1,
+    "stderr": "rill-runtime: handler package error: signature verification failed\n"
+  },
+  {
+    "channel": "stable",
+    "scenario": "tampered-handler",
+    "exitCode": 1,
+    "stderr": "rill-runtime: handler package error: I/O error: Invalid checksum\n"
+  },
+  {
+    "channel": "preview",
+    "scenario": "wrong-model-key",
+    "exitCode": 1,
+    "stderr": "rill-runtime: model package error: signature verification failed\n"
+  },
+  {
+    "channel": "preview",
+    "scenario": "wrong-handler-key",
+    "exitCode": 1,
+    "stderr": "rill-runtime: handler package error: signature verification failed\n"
+  },
+  {
+    "channel": "preview",
+    "scenario": "tampered-handler",
+    "exitCode": 1,
+    "stderr": "rill-runtime: handler package error: I/O error: Invalid checksum\n"
+  }
+]

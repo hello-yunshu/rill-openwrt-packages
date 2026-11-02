@@ -1,0 +1,14 @@
+Collected errors:
+ * pkg_get_installed_files: Failed to open /builder/runtime-smoke/opkg-owner/preview-first//usr/lib/opkg/info/libc.list: No such file or directory.
+Installing rill-runtime (1.5.6-r2) to root...
+Configuring rill-runtime.
+Collected errors:
+ * pkg_get_installed_files: Failed to open /builder/runtime-smoke/opkg-owner/preview-first//usr/lib/opkg/info/libc.list: No such file or directory.
+Removing package rill-runtime from root...
+Collected errors:
+ * pkg_get_installed_files: Failed to open /builder/runtime-smoke/opkg-owner/preview-first//usr/lib/opkg/info/libc.list: No such file or directory.
+Installing rill-runtime-preview (1.5.6-r3) to root...
+Configuring rill-runtime-preview.
+libc - 1
+rill-runtime-preview - 1.5.6-r3
+e6c776ff0a047982a09bf6224af22b399a5eedad28322df93abb38f725931775  /builder/runtime-smoke/opkg-owner/preview-first/usr/bin/rill-runtime

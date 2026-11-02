@@ -1,0 +1,38 @@
+{
+  "stable": {
+    "name": "rill-runtime",
+    "version": "1.5.6-r1",
+    "hashes": "6282dfd16f2df04bce3ded4e74861a020d552ffd",
+    "description": "Generic Rill Runtime packaged for OpenWrt. This distribution recipe installs only the runtime executable from an immutable Stable RillML source archive. It does not add OpenWrt product semantics or host mutation and does not install the rill-pack development binary.",
+    "arch": "x86_64",
+    "license": "MIT",
+    "origin": "feeds/base/rill-runtime",
+    "maintainer": "Rill OpenWrt Packages maintainers",
+    "url": "https://github.com/hello-yunshu/rill-ml",
+    "installed-size": 7486153,
+    "depends": [
+      "libc"
+    ],
+    "provides": [
+      "rill-runtime-any"
+    ]
+  },
+  "preview": {
+    "name": "rill-runtime-preview",
+    "version": "1.5.6-r2",
+    "hashes": "038ce5109d3fca533bc0eb179ada57ae02d21376",
+    "description": "Exact Preview Rill Runtime for qualified Cloudflare IP consumers. This package is intentionally separate from the Stable rill-runtime package and installs only the generic runtime executable.",
+    "arch": "x86_64",
+    "license": "MIT",
+    "origin": "feeds/base/rill-runtime-preview",
+    "maintainer": "Rill OpenWrt Packages maintainers",
+    "url": "https://github.com/hello-yunshu/rill-ml",
+    "installed-size": 7490249,
+    "depends": [
+      "libc"
+    ],
+    "provides": [
+      "rill-runtime-preview-any"
+    ]
+  }
+}
