@@ -88,8 +88,8 @@ def main():
     tree=subprocess.check_output(['cargo','tree','--locked','--edges','normal,build','-p','rill-runtime','--target',target['rustTarget'],'--prefix','none','--format','{p}|{f}'],cwd=args.source_dir,text=True,env=cargo_env)
     graph_packages=set()
     for line in tree.splitlines():
-        package=line.removesuffix(' (*)').split('|',1)[0].strip()
-        fields=package.split()
+        package_record=line.removesuffix(' (*)').split('|',1)[0].strip()
+        fields=package_record.split()
         if len(fields)>=2 and fields[1].startswith('v'):
             graph_packages.add((fields[0],fields[1][1:]))
     if not graph_packages:raise ValueError('shipped Runtime package graph is empty')
