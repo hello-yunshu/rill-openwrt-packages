@@ -88,18 +88,26 @@ def apk(path,tool,expected_name):
 
 
 def runtime_payload(payload,expected_name,pkgtype):
+    channel='stable' if expected_name=='rill-runtime' else 'preview'
+    marker='usr/share/rill/runtime-channel'
+    marker_bytes=(channel+'\n').encode()
     metadata_files=[]
     if pkgtype=='apk':
         # OpenWrt APK recipes ship a package-manager ownership list as data.
-        # Admit only this package's exact generated list with the sole runtime
-        # path; another list, additional owner, or arbitrary file stays fatal.
+        # Admit only this package's exact generated list with the runtime and
+        # channel marker paths; another list, additional owner, or arbitrary
+        # file stays fatal.
         owner_list='lib/apk/packages/'+expected_name+'.list'
-        if owner_list in payload:
-            if payload[owner_list]!=b'/usr/bin/rill-runtime\n':
-                raise ValueError('APK ownership list differs from runtime payload')
-            metadata_files.append(owner_list)
-    if set(payload)!={'usr/bin/rill-runtime',*metadata_files}:
-        raise ValueError('runtime package must own only its runtime and exact APK ownership metadata')
+        if owner_list not in payload:
+            raise ValueError('APK ownership list missing')
+        expected_owners={b'/usr/bin/rill-runtime',b'/usr/share/rill/runtime-channel'}
+        if set(payload[owner_list].splitlines())!=expected_owners:
+            raise ValueError('APK ownership list differs from runtime payload')
+        metadata_files.append(owner_list)
+    if payload.get(marker)!=marker_bytes:
+        raise ValueError('runtime channel marker missing or mismatched')
+    if set(payload)!={'usr/bin/rill-runtime',marker,*metadata_files}:
+        raise ValueError('runtime package must own only its runtime, channel marker and exact APK ownership metadata')
     return payload['usr/bin/rill-runtime'],metadata_files
 
 
