@@ -19,6 +19,42 @@ from verify_source_inputs import verify as verify_source
 ROOT=Path(__file__).resolve().parents[1]
 
 
+def shipped_runtime_lock(lock_text, packages):
+    """Return the Cargo.lock subset reachable from the shipped Runtime feature graph.
+
+    Optional workspace members (for example the polars analytics crate) remain
+    in the workspace lock but are not compiled into rill-runtime. Auditing that
+    full lock would report their advisories as shipped Runtime findings. This
+    closure keeps every dependency referenced by the actual cargo tree, including
+    target-specific records needed to parse the lock, and excludes the rest.
+    """
+    records={}
+    for block in re.split(r'(?m)^\[\[package\]\]\n',lock_text)[1:]:
+        match=re.match(r'name = "([^"]+)"\nversion = "([^"]+)"',block)
+        if not match:raise ValueError('invalid Cargo.lock package record')
+        dependencies=[]
+        listed=re.search(r'(?m)^dependencies = \[\n(.*?)\n\]',block,re.S)
+        if listed:
+            for line in listed.group(1).splitlines():
+                entry=re.match(r'\s*"([^"]+)"',line)
+                if entry:dependencies.append(entry.group(1))
+        records[(match.group(1),match.group(2))]=(block,dependencies)
+    keep=set(packages)
+    def resolve(spec):
+        fields=spec.split()
+        return [(name,version) for (name,version) in records if name==fields[0] and (len(fields)==1 or version==fields[1])]
+    changed=True
+    while changed:
+        changed=False
+        for key in list(keep):
+            if key not in records:raise ValueError('shipped Runtime dependency is missing from Cargo.lock: '+str(key))
+            for dependency in records[key][1]:
+                for target in resolve(dependency):
+                    if target not in keep:
+                        keep.add(target);changed=True
+    return 'version = 3\n\n'+''.join('[[package]]\n'+records[key][0] for key in sorted(keep))
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--package',type=Path,required=True)
@@ -50,6 +86,15 @@ def main():
     if compiler.split()[1]!=version():raise ValueError('actual compiler differs from reviewed toolchain')
     cargo_env={**os.environ,'CARGO_HOME':str(args.sdk_dir/'dl/cargo')}
     tree=subprocess.check_output(['cargo','tree','--locked','--edges','normal,build','-p','rill-runtime','--target',target['rustTarget'],'--prefix','none','--format','{p}|{f}'],cwd=args.source_dir,text=True,env=cargo_env)
+    graph_packages=set()
+    for line in tree.splitlines():
+        package=line.removesuffix(' (*)').split('|',1)[0].strip()
+        fields=package.split()
+        if len(fields)>=2 and fields[1].startswith('v'):
+            graph_packages.add((fields[0],fields[1][1:]))
+    if not graph_packages:raise ValueError('shipped Runtime package graph is empty')
+    if any(name in {'polars','zstd','zstd-safe','zstd-sys'} for name,_ in graph_packages):
+        raise ValueError('optional analytics dependency leaked into the shipped Runtime feature graph')
     engine={line.removesuffix(' (*)') for line in tree.splitlines() if line.startswith('wasmtime v')}
     if len(engine)!=1:raise ValueError('expected one resolved WASM engine')
     engine_name,features=engine.pop().split('|');features=set(features.split(','))
@@ -64,27 +109,45 @@ def main():
     lock_digest=hashlib.sha256(lock.read_bytes()).hexdigest()
     audit_env={key:value for key,value in cargo_env.items() if key!='CARGO_NET_OFFLINE'}
     args.output.parent.mkdir(parents=True,exist_ok=True)
-    audit_stem='security-audit-'+args.output.stem
-    command=[args.cargo_audit,'audit','--db',str(args.audit_db),'--file',str(lock),'--json']
-    try:
-        audited=subprocess.run(command,text=True,capture_output=True,env=audit_env,timeout=180)
-    except subprocess.TimeoutExpired as error:
-        def decoded(value):
-            return value.decode(errors='replace') if isinstance(value,bytes) else value or ''
-        args.output.with_name(audit_stem+'.json').write_text(decoded(error.stdout))
-        args.output.with_name(audit_stem+'.stderr.log').write_text(decoded(error.stderr)+'\nsecurity audit timed out\n')
-        raise ValueError('security audit timed out; partial evidence retained') from error
-    args.output.with_name(audit_stem+'.json').write_text(audited.stdout)
-    args.output.with_name(audit_stem+'.stderr.log').write_text(audited.stderr)
-    audit=json.loads(audited.stdout)
-    if audited.returncode or re.search(r'(?m)^error:',audited.stderr):
-        raise ValueError('security audit failed or could not inspect the dependency index; raw evidence retained')
-    if audit.get('vulnerabilities',{}).get('count')!=0 or audit.get('warnings') or audit.get('settings',{}).get('ignore'):
-        raise ValueError('source lock has unresolved or ignored security findings')
+    filtered_lock=args.output.with_name('security-audit-'+args.output.stem+'-shipped-runtime.lock')
+    filtered_lock.write_text(shipped_runtime_lock(lock.read_text(),graph_packages))
+    def run_audit(target,stem):
+        command=[args.cargo_audit,'audit','--db',str(args.audit_db),'--file',str(target),'--json']
+        try:
+            completed=subprocess.run(command,text=True,capture_output=True,env=audit_env,timeout=180)
+        except subprocess.TimeoutExpired as error:
+            def decoded(value):
+                return value.decode(errors='replace') if isinstance(value,bytes) else value or ''
+            args.output.with_name(stem+'.json').write_text(decoded(error.stdout))
+            args.output.with_name(stem+'.stderr.log').write_text(decoded(error.stderr)+'\nsecurity audit timed out\n')
+            raise ValueError('security audit timed out; partial evidence retained') from error
+        args.output.with_name(stem+'.json').write_text(completed.stdout)
+        args.output.with_name(stem+'.stderr.log').write_text(completed.stderr)
+        try:
+            parsed=json.loads(completed.stdout)
+        except json.JSONDecodeError as error:
+            raise ValueError('security audit returned invalid JSON; raw evidence retained') from error
+        if re.search(r'(?m)^error:',completed.stderr):
+            raise ValueError('security audit could not inspect the dependency index; raw evidence retained')
+        return completed,parsed
+    workspace_result,workspace_audit=run_audit(lock,'security-audit-workspace-'+args.output.stem)
+    filtered_result,audit=run_audit(filtered_lock,'security-audit-'+args.output.stem)
+    if filtered_result.returncode or audit.get('vulnerabilities',{}).get('count')!=0 or audit.get('warnings') or audit.get('settings',{}).get('ignore'):
+        raise ValueError('shipped Runtime dependency graph has unresolved or ignored security findings')
     if hashlib.sha256(lock.read_bytes()).hexdigest()!=lock_digest:
         raise ValueError('source lock changed during audit')
+    workspace_findings=sorted({item.get('advisory',{}).get('id','') for item in workspace_audit.get('vulnerabilities',{}).get('list',[]) if item.get('advisory',{}).get('id')})
+    workspace_warnings=sorted(workspace_audit.get('warnings',{}))
     security={'sourceLockSha256':lock_digest,'database':audit['database'],
-              'vulnerabilityCount':0,'warnings':{},'ignoredAdvisories':[]}
+              'vulnerabilityCount':0,'warnings':{},'ignoredAdvisories':[],
+              'graph':'shipped-runtime-default-features',
+              'dependencyCount':audit.get('lockfile',{}).get('dependency-count',0)}
+    workspace_security={'sourceLockSha256':lock_digest,'database':workspace_audit.get('database',{}),
+                        'vulnerabilityCount':workspace_audit.get('vulnerabilities',{}).get('count',0),
+                        'advisoryIds':workspace_findings,'warnings':workspace_warnings,
+                        'ignoredAdvisories':workspace_audit.get('settings',{}).get('ignore',[]),
+                        'reachableInShippedRuntime':False,
+                        'reason':'the full workspace lock includes optional analytics dependencies absent from the shipped rill-runtime cargo tree'}
     if not re.fullmatch('[a-f0-9]{64}',args.sdk_archive_sha256):raise ValueError('missing SDK archive identity')
     config=args.config_log.read_bytes()
     if re.search(rb'(^|[\s])error:|recursive dependency detected',config):raise ValueError('SDK configuration evidence contains an error')
@@ -94,7 +157,7 @@ def main():
             'build':{'rustToolchain':compiler.split()[1],
                      'sourceLockSha256':hashlib.sha256((args.source_dir/'Cargo.lock').read_bytes()).hexdigest(),
                      'runtimeFeatures':['wasm'],'defaultFeatures':True,'sourcePatches':patches,'verifiedSource':source_identity},
-            'sdk':sdk,'securityAudit':security,
+            'sdk':sdk,'securityAudit':security,'workspaceSecurityAudit':workspace_security,
             'resolvedWasmtime':{'engine':engine_name,'features':sorted(features)}}
     args.output.write_text(json.dumps(result,indent=2)+'\n')
 
