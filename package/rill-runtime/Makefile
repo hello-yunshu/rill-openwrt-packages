@@ -39,8 +39,9 @@ the rill-pack development binary.
 endef
 
 define Package/rill-runtime/install
-	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_DIR) $(1)/usr/bin $(1)/usr/share/rill
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/rill-runtime $(1)/usr/bin/rill-runtime
+	$(INSTALL_DATA) ./files/runtime-channel $(1)/usr/share/rill/runtime-channel
 endef
 
 $(eval $(call BuildPackage,rill-runtime))
