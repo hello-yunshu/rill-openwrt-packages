@@ -41,6 +41,13 @@ jobs:
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.workflow_run.id }}
+          pattern: rill-preview-feed-*-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: preview-feed-artifacts
+          merge-multiple: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
           name: qualification-evidence-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
           path: evidence
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -143,6 +150,66 @@ jobs:
           cp evidence/qualification.json site/qualification.json
           (cd site && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum) > site/SHA256SUMS
           jq -e --arg channel "$channel" '.channel == $channel' site/feed/manifest.json >/dev/null
+      - name: Assemble Preview channel
+        if: ${{ steps.channel.outputs.production_eligible == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d preview-feed-artifacts
+          test -n "$(find preview-feed-artifacts -name feed-metadata.json -print -quit)"
+          mkdir -p site/preview
+          cp -a preview-feed-artifacts/. site/preview/
+      - name: Sign Preview feed indexes
+        if: ${{ steps.channel.outputs.production_eligible == 'true' }}
+        env:
+          IPK_SIGNING_KEY: ${{ secrets.RILL_OPENWRT_IPK_SIGNING_KEY }}
+          APK_SIGNING_KEY: ${{ secrets.RILL_OPENWRT_APK_SIGNING_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$IPK_SIGNING_KEY" > "$RUNNER_TEMP/rill-preview-ipk.sec"
+          printf '%s\n' "$APK_SIGNING_KEY" > "$RUNNER_TEMP/rill-preview-apk.sec"
+          chmod 600 "$RUNNER_TEMP/rill-preview-ipk.sec" "$RUNNER_TEMP/rill-preview-apk.sec"
+          mkdir -p "$RUNNER_TEMP/apk-root"
+          python3 scripts/sign_feed.py site/preview \
+            --ipk-private-key "$RUNNER_TEMP/rill-preview-ipk.sec" \
+            --apk-private-key "$RUNNER_TEMP/rill-preview-apk.sec" \
+            --usign "$GITHUB_WORKSPACE/tools/bin/usign" \
+            --apk "$GITHUB_WORKSPACE/tools/bin/apk" \
+            --apk-root "$RUNNER_TEMP/apk-root"
+      - name: Generate Preview provenance and verify feed semantics
+        if: ${{ steps.channel.outputs.production_eligible == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          key_id="$(tools/bin/usign -F -p keys/rill-openwrt-feed-usign.pub)|$(sha256sum keys/rill-openwrt-feed-apk.pub | awk '{print $1}')"
+          release_url="https://github.com/${GITHUB_REPOSITORY}/releases/tag/v$(jq -r '.package.version' evidence/qualification.json)-r$(jq -r '.package.release' evidence/qualification.json)"
+          python3 scripts/build_feed_manifest.py site/preview evidence/qualification.json site/preview/manifest.json --channel preview \
+            --release-url "$release_url" \
+            --public-key keys/rill-openwrt-feed-usign.pub \
+            --apk-public-key keys/rill-openwrt-feed-apk.pub \
+            --key-id "$key_id"
+          python3 scripts/verify_feed.py site/preview --channel preview --manifest site/preview/manifest.json --apk tools/bin/apk \
+            --usign tools/bin/usign \
+            --public-key keys/rill-openwrt-feed-usign.pub \
+            --apk-public-key keys/rill-openwrt-feed-apk.pub
+          jq -e '.channel == "preview" and .productionFeedEligible == false' site/preview/manifest.json >/dev/null
+          jq -e '.channel == "production" and .productionFeedEligible == true' site/manifest.json >/dev/null
+      - name: Publish Preview channel landing page
+        if: ${{ steps.channel.outputs.production_eligible == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > site/preview/index.html <<'EOF'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Rill OpenWrt preview package feed</title>
+          <h1>Rill OpenWrt preview package feed</h1>
+          <p>Signed rill-runtime-preview packages promoted from the same exact qualification run as the stable feed.</p>
+          <p>This channel is separate from the production feed and is not referenced by it.</p>
+          <p><a href="../manifest.json">Stable feed manifest</a> · <a href="manifest.json">Preview feed manifest</a></p>
+          EOF
+          (cd site && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum) > site/SHA256SUMS
       - name: Create Pages site
         if: ${{ steps.channel.outputs.production_eligible == 'true' }}
         shell: bash
