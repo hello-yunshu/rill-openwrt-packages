@@ -110,6 +110,25 @@ verified for layout, indexes, and package hashes before GitHub Pages deployment.
 It contains only the currently registered and qualified targets and does not narrow the
 package's broader OpenWrt/Rust architecture capability.
 
+### Preview package (`rill-runtime-preview`)
+
+The Preview channel is a separate package, `rill-runtime-preview`, which conflicts
+with Stable `rill-runtime` (`CONFLICTS:=rill-runtime`, exposed as
+`!rill-runtime>=0` in APK metadata). Preview packages are **not** part of the signed
+feed: `qualify.yml` builds feed indexes for the Stable package only, and `feed.yml`
+assembles only `rill-runtime-feed-*` artifacts. Preview packages are published as
+Release assets, and because the Release tag is derived from the Stable package
+release number, a preview build may live under a Stable tag (for example
+`v1.5.6-r4`) while its own version is `1.5.6-r6`.
+
+Release assets are qualification build outputs without a feed index signature;
+`apk verify` reports `UNTRUSTED signature`. Installation on OpenWrt 25.12.5 /
+x86_64 therefore requires `apk add --allow-untrusted ./rill-runtime-preview-v25.12.5-x86_64.apk`.
+This is a reproducible one-off installation path, not a trusted software source.
+A trusted Preview channel would require generating and signing a separate preview
+feed index during qualification and publishing a dedicated preview channel on
+Pages; that change is not implemented yet. Rollback: `apk del rill-runtime-preview`.
+
 ## License
 
 The package recipes, scripts, and workflows in this repository are released
