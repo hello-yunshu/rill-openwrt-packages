@@ -90,6 +90,37 @@ APK 示例：
 包的安装内容必须保持为 Runtime 主程序；不要把本地构建目录中的
 <code>rill-pack</code> 或其他开发产物复制进设备。
 
+### Preview 包（<code>rill-runtime-preview</code>）
+
+Preview 通道是独立包 <code>rill-runtime-preview</code>，与 Stable 的
+<code>rill-runtime</code> 互斥（<code>CONFLICTS:=rill-runtime</code>，APK 元数据中
+表现为 <code>!rill-runtime&gt;=0</code>）。它由 <code>package/rill-runtime-preview/Makefile</code>
+定义，使用同一套 Rust 1.96.0 qualification toolchain。
+
+Preview 包**不进入已签名 feed**：<code>qualify.yml</code> 只为 Stable 包生成每个
+target 的 feed 索引，<code>feed.yml</code> 也只汇总 <code>rill-runtime-feed-*</code>
+artifact。Preview 包作为 Release 资产发布。Release tag 由 Stable 包的 release 号
+决定，因此 preview 包可能挂在 Stable 的 tag 下（例如 <code>v1.5.6-r4</code>），
+其自身版本仍为 <code>1.5.6-r6</code>。
+
+OpenWrt 25.12.5 / x86_64 已验证的取包方式：
+
+    curl -fLO https://github.com/hello-yunshu/rill-openwrt-packages/releases/download/v1.5.6-r4/rill-runtime-preview-v25.12.5-x86_64.apk
+    sha256sum rill-runtime-preview-v25.12.5-x86_64.apk
+    # 544b113af904dfbe89fc5662b690d78a91828fecb5e130c37869f53ca9a8e10e
+
+该文件是 qualification 构建产物，没有 feed 索引签名，<code>apk verify</code> 会报
+<code>UNTRUSTED signature</code>；安装时必须显式接受这一前提：
+
+    apk add --allow-untrusted ./rill-runtime-preview-v25.12.5-x86_64.apk
+
+这意味着它不是可信任的软件源，只是可复现的一次性安装路径。要获得无需
+<code>--allow-untrusted</code> 的 Preview 通道，需要在 qualification 阶段为
+preview 包生成并签名独立的 feed 索引，并在 Pages 上发布独立的 preview 通道；
+该改动尚未实现。回退：
+
+    apk del rill-runtime-preview
+
 ## 版本与来源完整性
 
 版本真相位于：
