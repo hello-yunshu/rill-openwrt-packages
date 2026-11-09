@@ -268,6 +268,62 @@ jobs:
             --arg packageRelease "$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")" \
             '{openwrtVersion:$version,target:$target,subtarget:$subtarget,packageArch:$packageArch,pkgtype:$pkgtype,package:$package,packageVersion:$packageVersion,packageRelease:($packageRelease|tonumber),signing:$signing}' \
             > "$feed_dir/feed-metadata.json"
+      - name: Generate per-target Preview feed index
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$SDKDIR"
+          package=$(find bin -type f -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
+          test -n "$package"
+          feed_dir="$GITHUB_WORKSPACE/preview-feed/${{ matrix.release_version }}/${{ matrix.openwrt_target }}/${{ matrix.openwrt_subtarget }}/${{ matrix.package_arch }}"
+          mkdir -p "$feed_dir"
+          cp "$package" "$feed_dir/$(basename "$package")"
+          case "${{ matrix.pkgtype }}" in
+            ipk)
+              (
+                cd "$feed_dir"
+                mkhash="$RUNNER_TEMP/openwrt-mkhash"
+                cat > "$mkhash" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          test "$1" = sha256
+          sha256sum "$2" | awk '{print $1}'
+          EOF
+                chmod +x "$mkhash"
+                MKHASH="$mkhash" "$SDKDIR/scripts/ipkg-make-index.sh" . > Packages.manifest
+                grep -vE '^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)' Packages.manifest > Packages
+                gzip -9nc Packages > Packages.gz
+              )
+              ;;
+            apk)
+              test -x "$SDKDIR/staging_dir/host/bin/apk"
+              (
+                cd "$feed_dir"
+                "$SDKDIR/staging_dir/host/bin/apk" mkndx \
+                  --root "$SDKDIR" \
+                  --keys-dir "$SDKDIR" \
+                  --allow-untrusted \
+                  --output packages.adb \
+                  ./*.apk
+              )
+              ;;
+            *)
+              echo "unsupported feed package type" >&2
+              exit 1
+              ;;
+          esac
+          jq -n \
+            --arg version "${{ matrix.release_version }}" \
+            --arg target "${{ matrix.openwrt_target }}" \
+            --arg subtarget "${{ matrix.openwrt_subtarget }}" \
+            --arg packageArch "${{ matrix.package_arch }}" \
+            --arg pkgtype "${{ matrix.pkgtype }}" \
+            --arg signing "unsigned" \
+            --arg package "rill-runtime-preview" \
+            --arg packageVersion "$(sed -n 's/^PKG_VERSION:=//p' "$GITHUB_WORKSPACE/package/rill-runtime-preview/Makefile")-r$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime-preview/Makefile")" \
+            --arg packageRelease "$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime-preview/Makefile")" \
+            '{openwrtVersion:$version,target:$target,subtarget:$subtarget,packageArch:$packageArch,pkgtype:$pkgtype,package:$package,packageVersion:$packageVersion,packageRelease:($packageRelease|tonumber),signing:$signing}' \
+            > "$feed_dir/feed-metadata.json"
       - name: Preserve official signing tools for promotion and transaction tests
         if: ${{ matrix.package_arch == 'x86_64' }}
         shell: bash
@@ -298,6 +354,11 @@ jobs:
         with:
           name: rill-runtime-feed-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: feed/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: rill-preview-feed-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: preview-feed/
           if-no-files-found: error
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
