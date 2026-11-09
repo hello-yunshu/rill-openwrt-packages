@@ -15,11 +15,12 @@ published RillML Stable archive and installs only:
 
     /usr/bin/rill-runtime
 
-Cloudflare IP's Preview consumer uses the separately named
-<code>rill-runtime-preview</code> package in this same repository. It is pinned
-to the exact upstream commit in its metadata, installs the same binary path,
-conflicts with Stable, and is built and checked for every registered target.
-Consumer integration executes the binary extracted from that Preview artifact.
+The Preview channel uses the separately named `rill-runtime-preview` package in
+this same repository. It is pinned to the exact upstream commit in its metadata,
+installs the same binary path, conflicts with Stable, and is built and checked for
+every registered target. The channel is a consumer-neutral Runtime outlet and is
+not tied to any single host product; known consumers include Cloudflare IP and
+Performance Manager.
 
 It does not install <code>rill-pack</code>, UCI/ubus/procd integration, product
 configuration, firewall helpers, or host-mutation logic. Those responsibilities
@@ -129,10 +130,12 @@ production signing keys are provisioned and publishes them to a separate
 For OpenWrt 25.12.5 / x86_64:
 
     echo 'https://hello-yunshu.github.io/rill-openwrt-packages/preview/25.12.5/x86/64/x86_64/packages.adb' > /etc/apk/repositories.d/rill-preview.list
+    wget -O /etc/apk/keys/rill-openwrt-feed-apk.pub https://hello-yunshu.github.io/rill-openwrt-packages/keys/rill-openwrt-feed-apk.pub
     apk update
     apk add rill-runtime-preview
 
-It uses the same trust root as the production feed (`keys/`), so
+The feed public key is the same as for the Stable feed. Trust comes from the signed
+index (`Packages.sig` / `packages.adb`), not from an individual package file, so
 `--allow-untrusted` is not needed. `preview/manifest.json` has `channel` set to
 `preview` and `productionFeedEligible` permanently `false`.
 
@@ -147,10 +150,23 @@ therefore requires accepting that trust gap explicitly:
 
 This is a reproducible one-off installation path, not a long-term software source.
 
-Installing the package does not enable the Rill integration. `/etc/config/cf_ip`
-from `luci-app-cloudflare-ip` has no `rill` section by default (`mode=off`), so
-the `rill-diagnostics` ubus call still reports `disabled`. This is a configuration
-switch, not a missing package; enable Rill explicitly in the LuCI UI.
+**Consumer examples.** The preview feed is a generic outlet and is not bound to a
+single host product:
+
+- **Cloudflare IP**: the optional rill subpackage of `luci-app-cloudflare-ip`
+  declares `+rill-runtime-preview`, so `apk add rill-runtime-preview` satisfies it
+  once the channel is configured. Its LuCI integration stays off by default:
+  `/etc/config/cf_ip` has no `rill` section (`mode=off`), so the `rill-diagnostics`
+  ubus call reports `disabled`. This is a configuration switch, not a missing
+  package; enable Rill explicitly in the LuCI UI.
+- **Performance Manager**: `performance-manager-rill` declares
+  `DEPENDS:=+performance-manager +rill-runtime` and consumes the generic Stable
+  Runtime through package dependency resolution; the all-in-one package embeds
+  only the exact `/usr/bin/rill-runtime` extracted from the qualified Runtime APK.
+  It consumes Preview by validating the next Runtime from the preview feed
+  (`rill-runtime-preview` conflicts with `rill-runtime`) before that Runtime is
+  promoted to Stable. Do not change its `+rill-runtime` dependency semantics for
+  Preview.
 
 Rollback: `apk del rill-runtime-preview`.
 
