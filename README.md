@@ -26,10 +26,11 @@
 | 包维护者 | Rill OpenWrt Packages maintainers |
 | 分发 Release | [rill-runtime releases](https://github.com/hello-yunshu/rill-openwrt-packages/releases) |
 
-Cloudflare IP 的 Preview consumer 使用同一仓库中的独立
-<code>rill-runtime-preview</code> 包。它固定到 metadata 中的 exact upstream
-commit，使用同样的安装路径，但不与 Stable 包同时安装；qualification workflow
-会构建并检查每个注册目标的 Preview artifact，消费者集成直接执行解包后的二进制。
+Preview 通道使用同一仓库中的独立 <code>rill-runtime-preview</code> 包：它固定到
+metadata 中的 exact upstream commit，使用同样的安装路径，但不与 Stable 包同时
+安装；qualification workflow 会构建并检查每个注册目标的 Preview artifact。
+该通道是消费方中立的通用 Runtime 出口，不绑定任何宿主产品；当前已知消费方
+包括 Cloudflare IP 与 Performance Manager。
 
 它只分发通用 Runtime 可执行文件，不把 OpenWrt 产品逻辑塞进 Rill：
 
@@ -111,11 +112,13 @@ production 签名密钥可用时对其签名，发布到独立的 <code>preview/
 例如 OpenWrt 25.12.5 / x86_64：
 
     echo 'https://hello-yunshu.github.io/rill-openwrt-packages/preview/25.12.5/x86/64/x86_64/packages.adb' > /etc/apk/repositories.d/rill-preview.list
+    wget -O /etc/apk/keys/rill-openwrt-feed-apk.pub https://hello-yunshu.github.io/rill-openwrt-packages/keys/rill-openwrt-feed-apk.pub
     apk update
     apk add rill-runtime-preview
 
-它的信任根与生产 feed 相同（<code>keys/</code>），因此不需要
-<code>--allow-untrusted</code>。<code>preview/manifest.json</code> 的
+首次使用需要安装 feed 公钥（与 Stable feed 相同）；信任来自签名索引
+（<code>Packages.sig</code> / <code>packages.adb</code>），而不是单个包文件，
+因此不需要 <code>--allow-untrusted</code>。<code>preview/manifest.json</code> 的
 <code>channel</code> 为 <code>preview</code>，<code>productionFeedEligible</code>
 恒为 <code>false</code>。
 
@@ -130,10 +133,21 @@ production 签名密钥可用时对其签名，发布到独立的 <code>preview/
 
 这只适合一次性验证，不应作为长期软件源。
 
-安装包不会自动启用 Rill 集成：<code>luci-app-cloudflare-ip</code> 的
-<code>/etc/config/cf_ip</code> 默认没有 <code>rill</code> 段（<code>mode=off</code>），
-此时 ubus 的 <code>rill-diagnostics</code> 仍返回 <code>disabled</code>。这是配置
-开关，不是缺包；需要用户在 LuCI 界面里手动打开 Rill。装完包不等于自动生效。
+**消费方示例。** Preview feed 是通用出口，不绑定任何单一宿主产品：
+
+- <b>Cloudflare IP</b>：<code>luci-app-cloudflare-ip</code> 的可选 rill 子包声明
+  <code>+rill-runtime-preview</code>，加源后直接
+  <code>apk add rill-runtime-preview</code> 即可满足依赖。该子包的 LuCI 集成默认
+  关闭：<code>/etc/config/cf_ip</code> 没有 <code>rill</code> 段（<code>mode=off</code>），
+  ubus 的 <code>rill-diagnostics</code> 会返回 <code>disabled</code>；这是配置
+  开关，不是缺包，需要在 LuCI 界面手动打开。
+- <b>Performance Manager</b>：<code>performance-manager-rill</code> 的 Makefile
+  声明 <code>DEPENDS:=+performance-manager +rill-runtime</code>，通过包依赖消费
+  通用 Stable Runtime；all-in-one 包只内置从 qualified Runtime APK 提取的 exact
+  <code>/usr/bin/rill-runtime</code>。它消费 Preview 的方式是先用 preview feed
+  验证下一个 Runtime（安装 <code>rill-runtime-preview</code>，注意与
+  <code>rill-runtime</code> 互斥），确认后再等待其进入 Stable；不要为了 Preview
+  改写该包的 <code>+rill-runtime</code> 依赖语义。
 
 回退：
 
