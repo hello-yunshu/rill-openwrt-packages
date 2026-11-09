@@ -97,27 +97,45 @@ Preview 通道是独立包 <code>rill-runtime-preview</code>，与 Stable 的
 表现为 <code>!rill-runtime&gt;=0</code>）。它由 <code>package/rill-runtime-preview/Makefile</code>
 定义，使用同一套 Rust 1.96.0 qualification toolchain。
 
-Preview 包**不进入已签名 feed**：<code>qualify.yml</code> 只为 Stable 包生成每个
-target 的 feed 索引，<code>feed.yml</code> 也只汇总 <code>rill-runtime-feed-*</code>
-artifact。Preview 包作为 Release 资产发布。Release tag 由 Stable 包的 release 号
-决定，因此 preview 包可能挂在 Stable 的 tag 下（例如 <code>v1.5.6-r4</code>），
-其自身版本仍为 <code>1.5.6-r6</code>。
+Preview 包同时进入两条发布通道：独立的签名 preview feed，以及 Release 资产。
+Release tag 由 Stable 包的 release 号决定，因此 preview 包可能挂在 Stable 的
+tag 下（例如 <code>v1.5.6-r4</code>），其自身版本仍为 <code>1.5.6-r6</code>。
 
-OpenWrt 25.12.5 / x86_64 已验证的取包方式：
+**签名 Preview feed（推荐）**：<code>qualify.yml</code> 为每个 target 生成 preview
+索引并上传 <code>rill-preview-feed-*</code> artifact；<code>feed.yml</code> 在
+production 签名密钥可用时对其签名，发布到独立的 <code>preview/</code> 通道。
+该通道不会写入生产 <code>feed/</code>：
+
+    https://hello-yunshu.github.io/rill-openwrt-packages/preview/<openwrt-version>/<target>/<subtarget>/<package-arch>/
+
+例如 OpenWrt 25.12.5 / x86_64：
+
+    echo 'https://hello-yunshu.github.io/rill-openwrt-packages/preview/25.12.5/x86/64/x86_64/packages.adb' > /etc/apk/repositories.d/rill-preview.list
+    apk update
+    apk add rill-runtime-preview
+
+它的信任根与生产 feed 相同（<code>keys/</code>），因此不需要
+<code>--allow-untrusted</code>。<code>preview/manifest.json</code> 的
+<code>channel</code> 为 <code>preview</code>，<code>productionFeedEligible</code>
+恒为 <code>false</code>。
+
+**Release 资产（一次性）**：Release 资产是 qualification 构建产物，没有 feed
+索引签名，<code>apk verify</code> 会报 <code>UNTRUSTED signature</code>；安装时
+必须显式接受这一前提：
 
     curl -fLO https://github.com/hello-yunshu/rill-openwrt-packages/releases/download/v1.5.6-r4/rill-runtime-preview-v25.12.5-x86_64.apk
     sha256sum rill-runtime-preview-v25.12.5-x86_64.apk
     # 544b113af904dfbe89fc5662b690d78a91828fecb5e130c37869f53ca9a8e10e
-
-该文件是 qualification 构建产物，没有 feed 索引签名，<code>apk verify</code> 会报
-<code>UNTRUSTED signature</code>；安装时必须显式接受这一前提：
-
     apk add --allow-untrusted ./rill-runtime-preview-v25.12.5-x86_64.apk
 
-这意味着它不是可信任的软件源，只是可复现的一次性安装路径。要获得无需
-<code>--allow-untrusted</code> 的 Preview 通道，需要在 qualification 阶段为
-preview 包生成并签名独立的 feed 索引，并在 Pages 上发布独立的 preview 通道；
-该改动尚未实现。回退：
+这只适合一次性验证，不应作为长期软件源。
+
+安装包不会自动启用 Rill 集成：<code>luci-app-cloudflare-ip</code> 的
+<code>/etc/config/cf_ip</code> 默认没有 <code>rill</code> 段（<code>mode=off</code>），
+此时 ubus 的 <code>rill-diagnostics</code> 仍返回 <code>disabled</code>。这是配置
+开关，不是缺包；需要用户在 LuCI 界面里手动打开 Rill。装完包不等于自动生效。
+
+回退：
 
     apk del rill-runtime-preview
 

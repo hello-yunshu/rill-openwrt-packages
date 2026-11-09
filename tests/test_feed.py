@@ -10,21 +10,21 @@ from scripts.verify_feed import verify
 from scripts.openwrt_targets import entries
 
 
-def make_feed(root: Path, *, corrupt: str | None = None) -> None:
+def make_feed(root: Path, *, corrupt: str | None = None, package_name: str = "rill-runtime", release: int = 1) -> None:
     for item in entries():
         version = str(item["openwrtVersion"])
         pkgtype = str(item["pkgtype"])
         arch = str(item["packageArch"])
-        package_version = "1.5.6-1" if pkgtype == "ipk" else "1.5.6-r1"
+        package_version = f"1.5.6-{release}" if pkgtype == "ipk" else f"1.5.6-r{release}"
         leaf = root / version / str(item["target"]) / str(item["subtarget"]) / arch
         leaf.mkdir(parents=True)
-        package = leaf / f"rill-runtime_{package_version}_{arch}.{pkgtype}"
+        package = leaf / f"{package_name}_{package_version}_{arch}.{pkgtype}"
         package.write_bytes(b"qualified-package")
-        metadata = {**item, "package": "rill-runtime", "packageVersion": package_version, "packageRelease": 1, "signing": "unsigned"}
+        metadata = {**item, "package": package_name, "packageVersion": package_version, "packageRelease": release, "signing": "unsigned"}
         (leaf / "feed-metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
         if pkgtype == "ipk":
             import hashlib
-            index = "\n".join(("Package: rill-runtime", f"Version: {package_version}", f"Architecture: {arch}", f"Filename: {package.name}", f"Size: {package.stat().st_size}", f"SHA256sum: {hashlib.sha256(package.read_bytes()).hexdigest()}", ""))
+            index = "\n".join((f"Package: {package_name}", f"Version: {package_version}", f"Architecture: {arch}", f"Filename: {package.name}", f"Size: {package.stat().st_size}", f"SHA256sum: {hashlib.sha256(package.read_bytes()).hexdigest()}", ""))
             (leaf / "Packages").write_text(index, encoding="utf-8")
             (leaf / "Packages.gz").write_bytes(gzip.compress(index.encode()))
         else:
@@ -68,6 +68,37 @@ class FeedTests(unittest.TestCase):
             (root / "24.10.8/x86/64/x86_64/Packages").unlink()
             errors = verify(root)
             self.assertTrue(any("missing IPK index" in error for error in errors))
+
+    def test_preview_unsigned_feed_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            make_feed(root, package_name="rill-runtime-preview", release=6)
+            errors = verify(root, channel="preview")
+            self.assertTrue(all("package mismatch" not in error for error in errors))
+            self.assertTrue(any("Packages.sig" in error for error in errors))
+
+    def test_preview_channel_rejects_stable_package_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            make_feed(root)
+            errors = verify(root, channel="preview")
+            self.assertTrue(any("package mismatch" in error for error in errors))
+
+    def test_preview_manifest_cannot_be_production_eligible(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            make_feed(root, package_name="rill-runtime-preview", release=6)
+            manifest = root / "manifest.json"
+            manifest.write_text(json.dumps({
+                "schemaVersion": 3, "package": "rill-runtime-preview", "packageCommit": "a" * 40,
+                "qualificationManifestSha256": "b" * 64, "qualificationRunAttempt": 1,
+                "qualificationState": "automated-qualification", "releaseTag": "v1.5.6-r4",
+                "productionFeedEligible": True,
+                "signing": {"status": "signed", "publicKeySha256": {"usign": "c" * 64, "apk": "d" * 64}},
+                "leaves": [],
+            }), encoding="utf-8")
+            errors = verify(root, channel="preview", manifest_path=manifest)
+            self.assertTrue(any("must not be production-eligible" in error for error in errors))
 
 
 if __name__ == "__main__":

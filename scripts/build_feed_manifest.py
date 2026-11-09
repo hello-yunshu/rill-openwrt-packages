@@ -23,26 +23,28 @@ def main() -> int:
     parser.add_argument("feed", type=Path)
     parser.add_argument("qualification", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--channel", choices=("development", "production"), required=True)
+    parser.add_argument("--channel", choices=("development", "production", "preview"), required=True)
     parser.add_argument("--release-url", default="")
     parser.add_argument("--public-key", type=Path)
     parser.add_argument("--apk-public-key", type=Path)
     parser.add_argument("--key-id", default="")
     args = parser.parse_args()
     qualification = json.loads(args.qualification.read_text(encoding="utf-8"))
-    if args.channel == "production":
+    if args.channel in ("production", "preview"):
         try:
             from .verify_qualification import verify
         except ImportError:
             from verify_qualification import verify
         if qualification.get("schemaVersion") != 3:
-            raise SystemExit("new production feed requires dual-channel schema 3 qualification")
+            raise SystemExit(f"new {args.channel} feed requires dual-channel schema 3 qualification")
         expected=argparse.Namespace(package_commit=None,version=None,release=None,
             upstream_repository=None,upstream_tag=None,upstream_commit=None,
-            openwrt_version=None,package_arch=None,pkgtype=None,channel="stable")
+            openwrt_version=None,package_arch=None,pkgtype=None,
+            channel="preview" if args.channel == "preview" else "stable")
         errors=verify(qualification,expected)
-        if errors:raise SystemExit("production feed qualification rejected: " + "; ".join(errors))
-    qualified_targets={tuple(str(row.get(key,"")) for key in ("openwrtVersion","target","subtarget","packageArch")):row for row in qualification.get("targets",[])}
+        if errors:raise SystemExit(f"{args.channel} feed qualification rejected: " + "; ".join(errors))
+    qualified_rows = qualification.get("previewPackage", {}).get("targets", []) if args.channel == "preview" else qualification.get("targets", [])
+    qualified_targets={tuple(str(row.get(key,"")) for key in ("openwrtVersion","target","subtarget","packageArch")):row for row in qualified_rows}
     leaves = []
     for metadata_path in sorted(args.feed.glob("*/*/*/*/feed-metadata.json")):
         leaf = metadata_path.parent
@@ -78,13 +80,16 @@ def main() -> int:
         missing = sorted(expected - actual)
         unknown = sorted(actual - expected)
         raise SystemExit(f"feed leaves do not match target registry; missing={missing}, unknown={unknown}")
-    signing_status = "signed" if args.channel == "production" else "unsigned"
+    signing_status = "signed" if args.channel in ("production", "preview") else "unsigned"
     if signing_status == "signed" and (not args.public_key or not args.public_key.is_file() or not args.apk_public_key or not args.apk_public_key.is_file()):
-        raise SystemExit("production manifest requires both public keys")
-    package = qualification["package"]
+        raise SystemExit(f"{args.channel} manifest requires both public keys")
+    package = qualification["previewPackage"] if args.channel == "preview" else qualification["package"]
+    # Preview assets are attached to the Stable release tag of the same exact
+    # qualification run; only the package identity is preview-specific.
+    release_tag_package = qualification["package"] if args.channel == "preview" else package
     manifest = {
         "schemaVersion": 3 if qualification.get("schemaVersion")==3 else 2, "channel": args.channel,
-        "productionFeedEligible": signing_status == "signed",
+        "productionFeedEligible": args.channel == "production" and signing_status == "signed",
         "package": package["name"], "packageVersion": package["version"],
         "packageRelease": package["release"], "packageVersionRelease": f"{package['version']}-r{package['release']}",
         "packageCommit": qualification["packageCommit"], "qualificationRun": qualification["runId"],
@@ -92,8 +97,9 @@ def main() -> int:
         "qualificationState": qualification.get("qualificationState"),
         "sourceBuild": qualification.get("build"),
         "qualificationManifestSha256": digest(args.qualification),
-        "releaseTag": f"v{package['version']}-r{package['release']}", "releaseUrl": args.release_url,
-        "upstream": qualification["upstream"],
+        "releaseTag": f"v{release_tag_package['version']}-r{release_tag_package['release']}",
+        "releaseUrl": args.release_url,
+        "upstream": qualification["upstream"] if args.channel != "preview" else package.get("upstream", qualification["upstream"]),
         "signing": {
             "status": signing_status,
             "scheme": "usign-Packages-and-apk-v3-index" if signing_status == "signed" else "none",

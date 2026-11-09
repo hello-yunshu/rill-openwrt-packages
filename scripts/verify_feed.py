@@ -129,6 +129,8 @@ def verify(
     apk_public_key: Path | None = None,
 ) -> list[str]:
     errors: list[str] = []
+    package_name = "rill-runtime-preview" if channel == "preview" else "rill-runtime"
+    signed_channels = ("production", "preview")
     expected, expected_leaves, by_leaf = registry_identities()
     manifest: dict[str, Any] | None = None
     if manifest_path:
@@ -142,25 +144,34 @@ def verify(
             attempt=manifest.get("qualificationRunAttempt")
             if type(attempt) is not int or attempt<=0 or manifest.get("qualificationState")!="automated-qualification":
                 errors.append("schema 3 feed requires exact qualification attempt and completed qualification")
-        if manifest.get("package") != "rill-runtime":
-            errors.append("feed manifest package must be rill-runtime")
+        if manifest.get("package") != package_name:
+            errors.append(f"feed manifest package must be {package_name}")
         if not re.fullmatch(r"[0-9a-f]{40}", str(manifest.get("packageCommit", ""))):
             errors.append("feed manifest packageCommit must be a 40-character SHA")
         if not re.fullmatch(r"[0-9a-f]{64}", str(manifest.get("qualificationManifestSha256", ""))):
             errors.append("feed manifest qualificationManifestSha256 must be a SHA-256")
-        if manifest.get("releaseTag") != f"v{manifest.get('packageVersion')}-r{manifest.get('packageRelease')}":
+        if channel == "preview":
+            # Preview assets ride on the Stable release tag of the same
+            # qualification run; validate against the published release URL.
+            release_tag = str(manifest.get("releaseTag", ""))
+            if not re.fullmatch(r"v\d+\.\d+\.\d+-r\d+", release_tag):
+                errors.append("preview feed releaseTag must identify the release carrying the preview assets")
+            release_url = str(manifest.get("releaseUrl") or "")
+            if release_url and not release_url.endswith("/" + release_tag):
+                errors.append("preview feed releaseUrl must match releaseTag")
+        elif manifest.get("releaseTag") != f"v{manifest.get('packageVersion')}-r{manifest.get('packageRelease')}":
             errors.append("feed manifest releaseTag does not match package identity")
         signing = manifest.get("signing")
         if not isinstance(signing, dict):
             errors.append("feed manifest signing metadata is missing")
-        elif channel == "production" and signing.get("status") != "signed":
-            errors.append("production feed must have signing.status=signed")
+        elif channel in signed_channels and signing.get("status") != "signed":
+            errors.append(f"{channel} feed must have signing.status=signed")
         elif channel == "development" and signing.get("status") not in {"unsigned", "signed"}:
             errors.append("development feed has invalid signing status")
-        if channel == "production" and isinstance(signing, dict):
+        if channel in signed_channels and isinstance(signing, dict):
             key_hashes = signing.get("publicKeySha256")
             if not isinstance(key_hashes, dict) or not re.fullmatch(r"[0-9a-f]{64}", str(key_hashes.get("usign", ""))) or not re.fullmatch(r"[0-9a-f]{64}", str(key_hashes.get("apk", ""))):
-                errors.append("production feed signing metadata must include both public-key SHA-256 values")
+                errors.append(f"{channel} feed signing metadata must include both public-key SHA-256 values")
 
     leaves = sorted(path for path in root.glob("*/*/*/*") if path.is_dir())
     if not leaves:
@@ -203,13 +214,13 @@ def verify(
         if metadata:
             expected_metadata = {
                 "openwrtVersion": version, "target": target, "subtarget": subtarget,
-                "packageArch": package_arch, "pkgtype": pkgtype, "package": "rill-runtime",
+                "packageArch": package_arch, "pkgtype": pkgtype, "package": package_name,
             }
             for field, expected_value in expected_metadata.items():
                 if metadata.get(field) != expected_value:
                     errors.append(f"{field} mismatch in {leaf}")
-            if channel == "production" and metadata.get("signing") != "signed":
-                errors.append(f"production leaf is not signed: {leaf}")
+            if channel in signed_channels and metadata.get("signing") != "signed":
+                errors.append(f"{channel} leaf is not signed: {leaf}")
 
         packages = sorted(leaf.glob(f"*.{pkgtype}"))
         if len(packages) != 1:
@@ -229,7 +240,7 @@ def verify(
                 except (OSError, EOFError, zlib.error) as exc:
                     errors.append(f"invalid Packages.gz in {leaf}: {exc}")
                 fields = _fields(index.read_text(encoding="utf-8"))
-                expected_index = {"Package": "rill-runtime", "Filename": package.name, "Size": str(package.stat().st_size), "SHA256sum": sha256(package)}
+                expected_index = {"Package": package_name, "Filename": package.name, "Size": str(package.stat().st_size), "SHA256sum": sha256(package)}
                 if metadata.get("packageVersion"):
                     expected_index["Version"] = str(metadata["packageVersion"])
                 if metadata.get("packageArch"):
@@ -237,12 +248,12 @@ def verify(
                 for field, value in expected_index.items():
                     if fields.get(field) != value:
                         errors.append(f"Packages {field} mismatch in {leaf}: expected {value!r}, got {fields.get(field)!r}")
-            if channel == "production":
+            if channel in signed_channels:
                 signature = leaf / "Packages.sig"
                 if not signature.is_file():
                     errors.append(f"missing Packages.sig in {leaf}")
                 elif not usign_path or not public_key:
-                    errors.append("production IPK verification requires usign and public key")
+                    errors.append(f"{channel} IPK verification requires usign and public key")
                 else:
                     result = subprocess.run([str(usign_path), "-V", "-m", str(index), "-p", str(public_key), "-x", str(signature), "-q"], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
                     if result.returncode:
@@ -255,19 +266,19 @@ def verify(
                 objects, dump_error = _apk_dump(apk_path, index)
                 if dump_error:
                     errors.append(f"APK index inspection failed in {leaf}: {dump_error}")
-                matches = [obj for obj in objects if obj.get("name") == "rill-runtime"]
+                matches = [obj for obj in objects if obj.get("name") == package_name]
                 if not matches:
-                    errors.append(f"APK index has no rill-runtime entry in {leaf}")
+                    errors.append(f"APK index has no {package_name} entry in {leaf}")
                 elif not any(str(obj.get("version")) == str(metadata["packageVersion"]) and str(obj.get("arch")) == package_arch for obj in matches):
-                    errors.append(f"APK index rill-runtime version/architecture mismatch in {leaf}")
+                    errors.append(f"APK index {package_name} version/architecture mismatch in {leaf}")
                 package_objects, package_error = _apk_dump(apk_path, package)
                 if package_error:
                     errors.append(f"APK package inspection failed in {leaf}: {package_error}")
-                elif not any(str(obj.get("name")) == "rill-runtime" and str(obj.get("version")) == str(metadata["packageVersion"]) and str(obj.get("arch")) == package_arch for obj in package_objects):
+                elif not any(str(obj.get("name")) == package_name and str(obj.get("version")) == str(metadata["packageVersion"]) and str(obj.get("arch")) == package_arch for obj in package_objects):
                     errors.append(f"APK package metadata mismatch in {leaf}")
-            if channel == "production":
+            if channel in signed_channels:
                 if not apk_path or not (apk_public_key or public_key):
-                    errors.append("production APK verification requires apk and public key")
+                    errors.append(f"{channel} APK verification requires apk and public key")
                 else:
                     error = _check_apk_repository(apk_path, leaf, apk_public_key or public_key)
                     if error:
@@ -290,13 +301,15 @@ def verify(
         errors.append("feed manifest leaves do not match metadata/openwrt-targets.json")
     if channel == "production" and manifest and manifest.get("productionFeedEligible") is not True:
         errors.append("production feed manifest must set productionFeedEligible=true")
+    if channel == "preview" and manifest and manifest.get("productionFeedEligible") is not False:
+        errors.append("preview feed manifest must not be production-eligible")
     return errors
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
-    parser.add_argument("--channel", choices=("development", "production"), default="development")
+    parser.add_argument("--channel", choices=("development", "production", "preview"), default="development")
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--apk", type=Path)
     parser.add_argument("--usign", type=Path)
