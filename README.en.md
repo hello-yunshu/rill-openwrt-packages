@@ -114,20 +114,45 @@ package's broader OpenWrt/Rust architecture capability.
 
 The Preview channel is a separate package, `rill-runtime-preview`, which conflicts
 with Stable `rill-runtime` (`CONFLICTS:=rill-runtime`, exposed as
-`!rill-runtime>=0` in APK metadata). Preview packages are **not** part of the signed
-feed: `qualify.yml` builds feed indexes for the Stable package only, and `feed.yml`
-assembles only `rill-runtime-feed-*` artifacts. Preview packages are published as
-Release assets, and because the Release tag is derived from the Stable package
-release number, a preview build may live under a Stable tag (for example
-`v1.5.6-r4`) while its own version is `1.5.6-r6`.
+`!rill-runtime>=0` in APK metadata). Preview builds ship through two channels: a
+dedicated signed preview feed and GitHub Release assets. Because the Release tag is
+derived from the Stable package release number, a preview build may live under a
+Stable tag (for example `v1.5.6-r4`) while its own version is `1.5.6-r6`.
 
-Release assets are qualification build outputs without a feed index signature;
-`apk verify` reports `UNTRUSTED signature`. Installation on OpenWrt 25.12.5 /
-x86_64 therefore requires `apk add --allow-untrusted ./rill-runtime-preview-v25.12.5-x86_64.apk`.
-This is a reproducible one-off installation path, not a trusted software source.
-A trusted Preview channel would require generating and signing a separate preview
-feed index during qualification and publishing a dedicated preview channel on
-Pages; that change is not implemented yet. Rollback: `apk del rill-runtime-preview`.
+**Signed preview feed (recommended).** `qualify.yml` generates a per-target preview
+index and uploads `rill-preview-feed-*` artifacts; `feed.yml` signs them when the
+production signing keys are provisioned and publishes them to a separate
+`preview/` channel that never writes to the production `feed/` channel:
+
+    https://hello-yunshu.github.io/rill-openwrt-packages/preview/<openwrt-version>/<target>/<subtarget>/<package-arch>/
+
+For OpenWrt 25.12.5 / x86_64:
+
+    echo 'https://hello-yunshu.github.io/rill-openwrt-packages/preview/25.12.5/x86/64/x86_64/packages.adb' > /etc/apk/repositories.d/rill-preview.list
+    apk update
+    apk add rill-runtime-preview
+
+It uses the same trust root as the production feed (`keys/`), so
+`--allow-untrusted` is not needed. `preview/manifest.json` has `channel` set to
+`preview` and `productionFeedEligible` permanently `false`.
+
+**Release assets (one-off).** Release assets are qualification build outputs without
+a feed index signature; `apk verify` reports `UNTRUSTED signature`. Installation
+therefore requires accepting that trust gap explicitly:
+
+    curl -fLO https://github.com/hello-yunshu/rill-openwrt-packages/releases/download/v1.5.6-r4/rill-runtime-preview-v25.12.5-x86_64.apk
+    sha256sum rill-runtime-preview-v25.12.5-x86_64.apk
+    # 544b113af904dfbe89fc5662b690d78a91828fecb5e130c37869f53ca9a8e10e
+    apk add --allow-untrusted ./rill-runtime-preview-v25.12.5-x86_64.apk
+
+This is a reproducible one-off installation path, not a long-term software source.
+
+Installing the package does not enable the Rill integration. `/etc/config/cf_ip`
+from `luci-app-cloudflare-ip` has no `rill` section by default (`mode=off`), so
+the `rill-diagnostics` ubus call still reports `disabled`. This is a configuration
+switch, not a missing package; enable Rill explicitly in the LuCI UI.
+
+Rollback: `apk del rill-runtime-preview`.
 
 ## License
 
