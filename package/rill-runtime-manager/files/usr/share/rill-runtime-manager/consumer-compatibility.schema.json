@@ -1,0 +1,13 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://hello-yunshu.github.io/rill-openwrt-packages/schemas/rill-consumer-compatibility-v1.json",
+	"title": "Rill consumer Runtime compatibility",
+	"type": "object",
+	"additionalProperties": false,
+	"required": [ "schemaVersion", "minVersion" ],
+	"properties": {
+		"schemaVersion": { "const": 1 },
+		"minVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+		"maxVersionExclusive": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" }
+	}
+}

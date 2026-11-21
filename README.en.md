@@ -1,54 +1,25 @@
 # Rill OpenWrt Packages
 
-This repository packages the generic
-[RillML](https://github.com/hello-yunshu/rill-ml) Runtime for OpenWrt. The
-Chinese [README](README.md) is the primary documentation; this file is a
-short English overview.
-
-[![OpenWrt package qualification](https://github.com/hello-yunshu/rill-openwrt-packages/actions/workflows/qualify.yml/badge.svg?branch=main)](https://github.com/hello-yunshu/rill-openwrt-packages/actions/workflows/qualify.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+This repository packages the generic [RillML](https://github.com/hello-yunshu/rill-ml) Runtime for OpenWrt. The Chinese [README](README.md) is the primary documentation.
 
 ## Scope
 
-The canonical Stable package is <code>rill-runtime</code>. It is built from an immutable,
-published RillML Stable archive and installs only:
-
-    /usr/bin/rill-runtime
-
-The Preview channel uses the separately named `rill-runtime-preview` package in
-this same repository. It is pinned to the exact upstream commit in its metadata,
-installs the same binary path, conflicts with Stable, and is built and checked for
-every registered target. The channel is a consumer-neutral Runtime outlet and is
-not tied to any single host product; known consumers include Cloudflare IP and
-Performance Manager.
-
-It does not install <code>rill-pack</code>, UCI/ubus/procd integration, product
-configuration, firewall helpers, or host-mutation logic. Those responsibilities
-belong to the consuming OpenWrt product.
-
-Current provenance:
+The only current package channel is Stable `rill-runtime`, which installs `/usr/bin/rill-runtime`. It does not install `rill-pack`, UCI/ubus/procd integration, product configuration, firewall helpers, or host-mutation logic.
 
 | Field | Value |
 | --- | --- |
-| Stable tag | <code>v1.5.6</code> |
-| Upstream commit | <code>b990cd7043d313b0ff29c9693f091a94a5bdaf47</code> |
-| Package release | <code>1.5.6-1</code> |
-| License | MIT |
+| Upstream Runtime version | `1.5.6` |
+| Pinned upstream commit | `1e962a82443088229714877eee98617f1596eee8` |
+| OpenWrt package version | `1.5.6-r8` |
+| Rust toolchain | `1.96.0` |
 
-## Qualification matrix
+Older devices may still have the retired `rill-runtime-preview` package installed. It shares the Runtime binary path and conflicts with `rill-runtime`; the Runtime manager detects it as a legacy migration state. New qualification, feed, and Release artifacts contain only `rill-runtime`.
 
-The canonical qualification workflow generates its matrix from
-[`metadata/openwrt-targets.json`](metadata/openwrt-targets.json), the single source of
-truth for OpenWrt target, package architecture, package format, and Rust target.
+## Qualification
 
-Other targets require their own real build, installation, runtime, and
-artifact evidence. This matrix proves package-level qualification only for
-x86_64, aarch64_generic, and aarch64_cortex-a53; a Rust target or a cross-compilation result is not,
-by itself, a support claim for MIPS, ARMv7, or another device architecture.
+The canonical target matrix comes from [`metadata/openwrt-targets.json`](metadata/openwrt-targets.json). It covers the registered OpenWrt 24.10.8 IPK and 25.12.6 APK targets. A registry entry is a required build target, not a claim that an untested device architecture is supported.
 
-## Build
-
-Use a matching OpenWrt SDK:
+Build with a matching OpenWrt SDK and Rust feed:
 
     ./scripts/feeds update packages
     ./scripts/feeds install rust
@@ -57,123 +28,28 @@ Use a matching OpenWrt SDK:
     make defconfig
     make package/rill-runtime/compile V=s
 
-The official qualification workflow builds both package formats, checks the
-final payload, and uploads immutable provenance evidence. The canonical
-qualification path uses an explicit, cached, version-pinned Rust toolchain
-contract together with OpenWrt's <code>rust-package.mk</code> helper. Architecture
-capability is broader than the current automated qualification matrix; see
-<code>metadata/architecture-capability.json</code> for the separate states.
-Per-SDK caches cover downloads, Cargo/Rust inputs, and safe Rust target output;
-the package build uses bounded <code>-j4</code> jobserver parallelism.
+Qualification evidence uses schema 4 and contains one `package`, top-level `upstream` and `build` provenance, and top-level `targets`. Release qualification builds and inspects only the canonical Stable package.
 
-Check Stable drift locally:
+Check whether the exact pinned source commit still matches upstream main:
 
     python3 scripts/check_upstream_version.py --json
 
-Downstream consumers should pin an immutable commit, require a successful
-qualification run, and verify its <code>qualification-evidence</code> artifact before
-shipping a package. Successful runs are promoted without rebuilding into the
-repository's immutable package Release. Cache hits only improve build time;
-they are not release identity or qualification evidence.
+If upstream main advances, review and pin its exact commit, increment the OpenWrt package release, then qualify that package before promotion.
 
-## OpenWrt feed
+## Installation
 
-The same qualified package artifacts are published as a directory-layout feed:
+New installations should use the signed unified Yun feed at:
 
-    https://hello-yunshu.github.io/rill-openwrt-packages/feed/<openwrt-version>/<target>/<subtarget>/<package-arch>/
+    https://hello-yunshu.github.io/yun-openwrt-packages/<openwrt-version>/<package-arch>/
 
-The feed uses native OpenWrt signing formats: `Packages.sig` with `usign` for
-24.10 and an apk-tools v3 EC repository key inside `packages.adb` for 25.12.
-Production signing is enabled. Current trust-root fingerprints are documented in
-`keys/README.md`; unsigned or development output is never promoted as a
-production feed.
+For example, with the feed and trust key already configured:
 
-Example OpenWrt 24.10 configuration:
-
-    echo 'src/gz rill https://hello-yunshu.github.io/rill-openwrt-packages/feed/24.10.8/x86/64/x86_64/' >> /etc/opkg/customfeeds.conf
-    opkg update
     opkg install rill-runtime
-
-Example OpenWrt 25.12 configuration:
-
-    echo 'https://hello-yunshu.github.io/rill-openwrt-packages/feed/25.12.5/x86/64/x86_64/packages.adb' > /etc/apk/repositories.d/rill.list
-    apk update
+    # or on APK-based OpenWrt:
     apk add rill-runtime
 
-After manually checking the public-key fingerprints under the Pages `keys/`
-directory, install the usign key in `/etc/opkg/keys/` for 24.10 and the APK key
-in `/etc/apk/keys/` for 25.12. Missing/wrong keys, tampered indexes, and
-tampered packages must fail. Pages keeps `manifest.json`, `qualification.json`,
-and `SHA256SUMS` so the feed remains auditable after Actions artifacts expire.
-
-The feed is assembled from the exact qualification run and independently
-verified for layout, indexes, and package hashes before GitHub Pages deployment.
-It contains only the currently registered and qualified targets and does not narrow the
-package's broader OpenWrt/Rust architecture capability.
-
-### Preview package (`rill-runtime-preview`)
-
-The Preview channel is a separate package, `rill-runtime-preview`, which conflicts
-with Stable `rill-runtime` (`CONFLICTS:=rill-runtime`, exposed as
-`!rill-runtime>=0` in APK metadata). Preview builds ship through two channels: a
-dedicated signed preview feed and GitHub Release assets. Because the Release tag is
-derived from the Stable package release number, a preview build may live under a
-Stable tag (for example `v1.5.6-r4`) while its own version is `1.5.6-r6`.
-
-**Signed preview feed (recommended).** `qualify.yml` generates a per-target preview
-index and uploads `rill-preview-feed-*` artifacts; `feed.yml` signs them when the
-production signing keys are provisioned and publishes them to a separate
-`preview/` channel that never writes to the production `feed/` channel:
-
-    https://hello-yunshu.github.io/rill-openwrt-packages/preview/<openwrt-version>/<target>/<subtarget>/<package-arch>/
-
-For OpenWrt 25.12.5 / x86_64:
-
-    echo 'https://hello-yunshu.github.io/rill-openwrt-packages/preview/25.12.5/x86/64/x86_64/packages.adb' > /etc/apk/repositories.d/rill-preview.list
-    wget -O /etc/apk/keys/rill-openwrt-feed-apk.pub https://hello-yunshu.github.io/rill-openwrt-packages/keys/rill-openwrt-feed-apk.pub
-    apk update
-    apk add rill-runtime-preview
-
-The feed public key is the same as for the Stable feed. Trust comes from the signed
-index (`Packages.sig` / `packages.adb`), not from an individual package file, so
-`--allow-untrusted` is not needed. `preview/manifest.json` has `channel` set to
-`preview` and `productionFeedEligible` permanently `false`.
-
-**Release assets (one-off).** Release assets are qualification build outputs without
-a feed index signature; `apk verify` reports `UNTRUSTED signature`. Installation
-therefore requires accepting that trust gap explicitly:
-
-    curl -fLO https://github.com/hello-yunshu/rill-openwrt-packages/releases/download/v1.5.6-r4/rill-runtime-preview-v25.12.5-x86_64.apk
-    sha256sum rill-runtime-preview-v25.12.5-x86_64.apk
-    # 544b113af904dfbe89fc5662b690d78a91828fecb5e130c37869f53ca9a8e10e
-    apk add --allow-untrusted ./rill-runtime-preview-v25.12.5-x86_64.apk
-
-This is a reproducible one-off installation path, not a long-term software source.
-
-**Consumer examples.** The preview feed is a generic outlet and is not bound to a
-single host product:
-
-- **Cloudflare IP**: the optional rill subpackage of `luci-app-cloudflare-ip`
-  declares `+rill-runtime-preview`, so `apk add rill-runtime-preview` satisfies it
-  once the channel is configured. Its LuCI integration stays off by default:
-  `/etc/config/cf_ip` has no `rill` section (`mode=off`), so the `rill-diagnostics`
-  ubus call reports `disabled`. This is a configuration switch, not a missing
-  package; enable Rill explicitly in the LuCI UI.
-- **Performance Manager**: `performance-manager-rill` declares
-  `DEPENDS:=+performance-manager +rill-runtime` and consumes the generic Stable
-  Runtime through package dependency resolution; the all-in-one package embeds
-  only the exact `/usr/bin/rill-runtime` extracted from the qualified Runtime APK.
-  It consumes Preview by validating the next Runtime from the preview feed
-  (`rill-runtime-preview` conflicts with `rill-runtime`) before that Runtime is
-  promoted to Stable. Do not change its `+rill-runtime` dependency semantics for
-  Preview.
-
-Rollback: `apk del rill-runtime-preview`.
+The Runtime manager does not add feed sources, download keys, or bypass signature checks. Remove retired Rill `/feed/` or `/preview/` repository entries before managing packages through the unified source.
 
 ## License
 
-The package recipes, scripts, and workflows in this repository are released
-under the [MIT License](LICENSE). Upstream RillML source and dependencies
-remain subject to their own license declarations.
-
-See the [Chinese README](README.md) for the full documentation.
+Package recipes, scripts, and workflows are licensed under [MIT](LICENSE). Upstream RillML source and dependencies retain their own license terms.

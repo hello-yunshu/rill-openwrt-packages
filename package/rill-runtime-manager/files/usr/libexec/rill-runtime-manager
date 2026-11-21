@@ -1,0 +1,563 @@
+#!/bin/sh
+
+# rpcd backend for the optional shared Runtime and the allowlisted consumer apps.
+# All repository configuration and trust keys must already be installed by the
+# system administrator/package source. This helper never downloads keys or edits
+# package source configuration.
+
+set -f
+
+RILL_MANAGER_ROOT="${RILL_MANAGER_TEST_ROOT:-}"
+RILL_MANAGER_TESTING="${RILL_MANAGER_TESTING:-0}"
+RILL_FEED_ORIGIN='https://hello-yunshu.github.io/yun-openwrt-packages'
+RILL_RUNTIME_PACKAGE='rill-runtime'
+RILL_LEGACY_PREVIEW_PACKAGE='rill-runtime-preview'
+RILL_RUNTIME_PATH='/usr/bin/rill-runtime'
+RILL_CHANNEL_PATH='/usr/share/rill/runtime-channel'
+RILL_APK_KEY='/etc/apk/keys/yun-feed.rsa.pub'
+RILL_IPK_KEY_DIR='/etc/opkg/keys'
+RILL_IPK_KEY_ID='e58db45ab792599d'
+
+# Source libubox's JSON helpers, which escape values and emit valid JSON.
+if [ "$RILL_MANAGER_TESTING" != 1 ]; then
+	. /usr/share/libubox/jshn.sh
+fi
+
+path() {
+	if [ -n "$RILL_MANAGER_ROOT" ]; then
+		printf '%s%s' "$RILL_MANAGER_ROOT" "$1"
+	else
+		printf '%s' "$1"
+	fi
+}
+
+json_output() {
+	if [ "$RILL_MANAGER_TESTING" = 1 ]; then
+		printf '%s\n' "$1"
+	else
+		json_dump
+		printf '\n'
+	fi
+}
+
+emit() {
+	_ok="$1"
+	_supported="$2"
+	_release="$3"
+	_arch="$4"
+	_pkgtype="$5"
+	_installed="$6"
+	_channel="$7"
+	_version="$8"
+	_compatible="$9"
+	_update_available="${10}"
+	_busy="${11}"
+	_error_code="${12}"
+	_message="${13}"
+	_feed_ready="${14}"
+	_client_update_available="${RILL_CLIENT_UPDATE_AVAILABLE:-false}"
+	_cfi_update_available="${RILL_CFI_UPDATE_AVAILABLE:-false}"
+	_pm_update_available="${RILL_PM_UPDATE_AVAILABLE:-false}"
+	_repair_available="${RILL_REPAIR_AVAILABLE:-false}"
+
+	if [ "$RILL_MANAGER_TESTING" = 1 ]; then
+		printf '{"ok":%s,"supported":%s,"release":"%s","architecture":"%s","pkgtype":"%s","installed":%s,"channel":"%s","version":"%s","compatible":%s,"updateAvailable":%s,"runtimeUpdateAvailable":%s,"clientUpdateAvailable":%s,"cfiUpdateAvailable":%s,"pmUpdateAvailable":%s,"helperAvailable":true,"repairAvailable":%s,"busy":%s,"errorCode":"%s","message":"%s","feedReady":%s}\n' \
+			"$_ok" "$_supported" "$_release" "$_arch" "$_pkgtype" "$_installed" "$_channel" "$_version" "$_compatible" "$_update_available" "$_update_available" "$_client_update_available" "$_cfi_update_available" "$_pm_update_available" "$_repair_available" "$_busy" "$_error_code" "$_message" "$_feed_ready"
+		return
+	fi
+	json_init
+	json_add_boolean ok "$([ "$_ok" = true ] && echo 1 || echo 0)"
+	json_add_boolean supported "$([ "$_supported" = true ] && echo 1 || echo 0)"
+	json_add_string release "$_release"
+	json_add_string architecture "$_arch"
+	json_add_string pkgtype "$_pkgtype"
+	json_add_boolean installed "$([ "$_installed" = true ] && echo 1 || echo 0)"
+	json_add_string channel "$_channel"
+	json_add_string version "$_version"
+	json_add_boolean compatible "$([ "$_compatible" = true ] && echo 1 || echo 0)"
+	json_add_boolean updateAvailable "$([ "$_update_available" = true ] && echo 1 || echo 0)"
+	json_add_boolean runtimeUpdateAvailable "$([ "$_update_available" = true ] && echo 1 || echo 0)"
+	json_add_boolean clientUpdateAvailable "$([ "$_client_update_available" = true ] && echo 1 || echo 0)"
+	json_add_boolean cfiUpdateAvailable "$([ "$_cfi_update_available" = true ] && echo 1 || echo 0)"
+	json_add_boolean pmUpdateAvailable "$([ "$_pm_update_available" = true ] && echo 1 || echo 0)"
+	json_add_boolean helperAvailable 1
+	json_add_boolean repairAvailable "$([ "$_repair_available" = true ] && echo 1 || echo 0)"
+	json_add_boolean busy "$([ "$_busy" = true ] && echo 1 || echo 0)"
+	json_add_string errorCode "$_error_code"
+	json_add_string message "$_message"
+	json_add_boolean feedReady "$([ "$_feed_ready" = true ] && echo 1 || echo 0)"
+	json_output
+}
+
+read_platform() {
+	RILL_RELEASE=''
+	RILL_ARCH=''
+	RILL_PKGTYPE=''
+	if [ -f "$(path /etc/openwrt_release)" ]; then
+		# shellcheck disable=SC1090
+		. "$(path /etc/openwrt_release)"
+		RILL_RELEASE="${DISTRIB_RELEASE:-}"
+		RILL_ARCH="${DISTRIB_ARCH:-}"
+	fi
+	case "$RILL_RELEASE" in
+		24.10.8) RILL_PKGTYPE=ipk ;;
+		25.12.6) RILL_PKGTYPE=apk ;;
+	esac
+}
+
+runtime_arch_supported() {
+	case "$RILL_ARCH" in
+		x86_64|aarch64_generic|aarch64_cortex-a53|aarch64_cortex-a72|aarch64_cortex-a76|arm_cortex-a7_neon-vfpv4) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+package_installed() {
+	_pi_package="$1"
+	case "$RILL_PKGTYPE" in
+		apk)
+			command -v apk >/dev/null 2>&1 && apk info -e "$_pi_package" >/dev/null 2>&1
+			;;
+		ipk)
+			command -v opkg >/dev/null 2>&1 && opkg status "$_pi_package" 2>/dev/null | grep -q '^Status:.*installed'
+			;;
+		*) return 1 ;;
+	esac
+}
+
+runtime_installed() {
+	package_installed "$RILL_RUNTIME_PACKAGE" || package_installed "$RILL_LEGACY_PREVIEW_PACKAGE"
+}
+
+package_version() {
+	_pv_package="$1"
+	case "$RILL_PKGTYPE" in
+		apk)
+			apk info -v "$_pv_package" 2>/dev/null | sed -n "1{s/^${_pv_package}-//;p;}"
+			;;
+		ipk)
+			opkg list-installed "$_pv_package" 2>/dev/null | awk -v name="$_pv_package" '$1 == name { print $3; exit }'
+			;;
+	esac
+}
+
+runtime_channel() {
+	_rc_file="$(path "$RILL_CHANNEL_PATH")"
+	if [ -f "$_rc_file" ]; then
+		_rc_value="$(sed -n '1{s/[[:space:]]//g;p;}' "$_rc_file" 2>/dev/null)"
+		case "$_rc_value" in stable) printf stable; return ;; preview) printf legacy-preview; return ;; esac
+	fi
+	if package_installed rill-runtime; then printf stable; return; fi
+	if package_installed rill-runtime-preview; then printf legacy-preview; return; fi
+	if [ -e "$(path "$RILL_RUNTIME_PATH")" ]; then printf unknown; return; fi
+	printf none
+}
+
+package_update_available() {
+	_pua_package="$1"
+	if [ "$RILL_PKGTYPE" = apk ]; then
+		apk list -u "$_pua_package" 2>/dev/null | grep -q '\[upgradable from:'
+	else
+		opkg list-upgradable "$_pua_package" 2>/dev/null | grep -q "^$_pua_package "
+	fi
+}
+
+runtime_update_available() {
+	if package_installed "$RILL_RUNTIME_PACKAGE"; then
+		package_update_available "$RILL_RUNTIME_PACKAGE"
+	elif package_installed "$RILL_LEGACY_PREVIEW_PACKAGE"; then
+		return 1
+	else
+		candidate_version "$RILL_RUNTIME_PACKAGE" install >/dev/null 2>&1
+	fi
+}
+
+cfi_update_available() {
+	package_installed luci-app-cloudflare-ip && package_update_available luci-app-cloudflare-ip
+}
+
+pm_update_available() {
+	package_installed luci-app-performance-manager-all && package_update_available luci-app-performance-manager-all
+}
+
+feed_ready() {
+	_fr_expected=''
+	case "$RILL_PKGTYPE" in
+		apk)
+			_fr_expected="$RILL_FEED_ORIGIN/$RILL_RELEASE/$RILL_ARCH/packages.adb"
+			_fr_repos="$(path /etc/apk/repositories.d)"
+			[ -d "$_fr_repos" ] || return 1
+			_fr_repo_found=false
+			for _fr_file in $(find "$_fr_repos" -type f -name '*.list' 2>/dev/null); do
+				if grep -F -x -q "$_fr_expected" "$_fr_file" 2>/dev/null; then
+					_fr_repo_found=true
+					break
+				fi
+			done
+			[ "$_fr_repo_found" = true ] || return 1
+			[ -s "$(path "$RILL_APK_KEY")" ] || return 2
+			;;
+		ipk)
+			_fr_expected="$RILL_FEED_ORIGIN/$RILL_RELEASE/$RILL_ARCH/"
+			_fr_config="$(path /etc/opkg/customfeeds.conf)"
+			[ -r "$_fr_config" ] || return 1
+			awk -v expected="$_fr_expected" '$1 == "src/gz" && $2 == "yun-openwrt" && $3 == expected { found=1 } END { exit !found }' "$_fr_config" || return 1
+			_fr_keys="$(path "$RILL_IPK_KEY_DIR")"
+			_fr_key="$_fr_keys/$RILL_IPK_KEY_ID"
+			[ -s "$_fr_key" ] || return 2
+			command -v usign >/dev/null 2>&1 || return 2
+			usign -F -p "$_fr_key" 2>/dev/null | grep -F -x -q "$RILL_IPK_KEY_ID" || return 2
+			grep -Eq '^[[:space:]]*option[[:space:]]+check_signature[[:space:]]*$' "$(path /etc/opkg.conf)" || return 2
+			;;
+		*) return 1 ;;
+	esac
+	return 0
+}
+
+legacy_feed_configured() {
+	_lfc_pattern='https://hello-yunshu\.github\.io/rill-openwrt-packages/(feed|preview)/'
+	case "$RILL_PKGTYPE" in
+		ipk)
+			_lfc_config="$(path /etc/opkg/customfeeds.conf)"
+			[ -r "$_lfc_config" ] && grep -Eq "$_lfc_pattern" "$_lfc_config"
+			;;
+		apk)
+			_lfc_found=false
+			_lfc_config="$(path /etc/apk/repositories)"
+			if [ -r "$_lfc_config" ] && grep -Eq "$_lfc_pattern" "$_lfc_config"; then return 0; fi
+			_lfc_dir="$(path /etc/apk/repositories.d)"
+			if [ -d "$_lfc_dir" ]; then
+				for _lfc_file in $(find "$_lfc_dir" -type f -name '*.list' 2>/dev/null); do
+					if grep -Eq "$_lfc_pattern" "$_lfc_file"; then return 0; fi
+				done
+			fi
+			return 1
+			;;
+		*) return 1 ;;
+	esac
+}
+
+feed_update() {
+	case "$RILL_PKGTYPE" in
+		apk) apk update ;;
+		ipk) opkg update ;;
+		*) return 1 ;;
+	esac
+}
+
+lock_acquire() {
+	_lock="$(path /var/lock/rill-runtime-manager)"
+	if mkdir "$_lock" 2>/dev/null; then
+		printf '%s\n' "$$" > "$_lock/pid"
+		return 0
+	fi
+	_oldpid="$(cat "$_lock/pid" 2>/dev/null || true)"
+	case "$_oldpid" in ''|*[!0-9]*) return 1 ;; esac
+	if kill -0 "$_oldpid" 2>/dev/null; then return 1; fi
+	rm -rf "$_lock"
+	mkdir "$_lock" 2>/dev/null || return 1
+	printf '%s\n' "$$" > "$_lock/pid"
+}
+
+lock_release() {
+	_lock="$(path /var/lock/rill-runtime-manager)"
+	_owner="$(cat "$_lock/pid" 2>/dev/null || true)"
+	[ "$_owner" = "$$" ] && rm -rf "$_lock"
+}
+
+installed_consumer_compatible() {
+	_ic_package="$1"
+	_ic_file=''
+	case "$_ic_package" in
+		luci-app-cloudflare-ip) _ic_file="$(path /usr/share/cf-ip/rill-runtime-compat.json)" ;;
+		luci-app-performance-manager-all) _ic_file="$(path /usr/share/performance-manager/rill-runtime-compat.json)" ;;
+		*) return 0 ;;
+	esac
+	[ -r "$_ic_file" ] || return 2
+	_ic_min="$(jsonfilter -i "$_ic_file" -e '@.minVersion' 2>/dev/null || true)"
+	_ic_max="$(jsonfilter -i "$_ic_file" -e '@.maxVersionExclusive' 2>/dev/null || true)"
+	printf '%s\n' "$_ic_min" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || return 2
+	if [ -n "$_ic_max" ]; then printf '%s\n' "$_ic_max" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || return 2; fi
+	_ic_version="${RILL_CHECK_VERSION:-}"
+	[ -n "$_ic_version" ] || return 2
+	if ! version_gte "$_ic_version" "$_ic_min"; then return 3; fi
+	if [ -n "$_ic_max" ] && ! version_lt "$_ic_version" "$_ic_max"; then return 3; fi
+	return 0
+}
+
+consumer_manifests_compatible() {
+	_cmc_version="$1"
+	for _cm in luci-app-cloudflare-ip luci-app-performance-manager-all; do
+		if package_installed "$_cm"; then
+			RILL_CHECK_VERSION="$_cmc_version"
+			installed_consumer_compatible "$_cm" || return $?
+		fi
+	done
+	return 0
+}
+
+version_gte() {
+	_vg_candidate="$1"
+	_vg_minimum="$2"
+	case "$RILL_PKGTYPE" in
+		apk) [ "$(apk version -t "$_vg_candidate" "$_vg_minimum" 2>/dev/null)" != '<' ] ;;
+		ipk) opkg compare-versions "$_vg_candidate" ge "$_vg_minimum" >/dev/null 2>&1 ;;
+		*) return 1 ;;
+	esac
+}
+
+version_lt() {
+	_vl_candidate="$1"
+	_vl_maximum="$2"
+	case "$RILL_PKGTYPE" in
+		apk) [ "$(apk version -t "$_vl_candidate" "$_vl_maximum" 2>/dev/null)" = '<' ] ;;
+		ipk) opkg compare-versions "$_vl_candidate" lt "$_vl_maximum" >/dev/null 2>&1 ;;
+		*) return 1 ;;
+	esac
+}
+
+candidate_version() {
+	_cv_package="$1"
+	_cv_action="$2"
+	case "$RILL_PKGTYPE" in
+		apk)
+			if [ "$_cv_action" = update ]; then
+				apk list -u "$_cv_package" 2>/dev/null
+			else
+				apk list -a "$_cv_package" 2>/dev/null
+			fi | awk -v prefix="$_cv_package-" '$1 ~ ("^" prefix) { value=$1; sub("^" prefix, "", value); sub(/[[:space:]].*$/, "", value); print value; exit }'
+			;;
+		ipk)
+			if [ "$_cv_action" = update ]; then
+				opkg list-upgradable "$_cv_package" 2>/dev/null | awk -v name="$_cv_package" '$1 == name && $2 == "-" { print $3; exit }'
+			else
+				opkg list "$_cv_package" 2>/dev/null | awk -v name="$_cv_package" '$1 == name { print $3; exit }'
+			fi
+			;;
+		*) return 1 ;;
+	esac
+}
+
+candidate_has_version() {
+	_chv_package="$1"
+	_chv_version="$2"
+	case "$RILL_PKGTYPE" in
+		apk)
+			apk list -a "$_chv_package" 2>/dev/null | awk -v prefix="$_chv_package-" -v expected="$_chv_version" '
+				$1 ~ ("^" prefix) { value=$1; sub("^" prefix, "", value); sub(/[[:space:]].*$/, "", value); if (value == expected) found=1 }
+				END { exit !found }'
+			;;
+		ipk)
+			opkg list "$_chv_package" 2>/dev/null | awk -v name="$_chv_package" -v expected="$_chv_version" '$1 == name && $2 == "-" && $3 == expected { found=1 } END { exit !found }'
+			;;
+		*) return 1 ;;
+	esac
+}
+
+status() {
+	read_platform
+	_s_supported=false
+	_s_installed=false
+	_s_channel=none
+	_s_version=''
+	_s_compatible=false
+	_s_update=false
+	_s_busy=false
+	_s_error=''
+	_s_message=''
+	_s_feed=false
+	_s_legacy=false
+	RILL_CLIENT_UPDATE_AVAILABLE=false
+	RILL_CFI_UPDATE_AVAILABLE=false
+	RILL_PM_UPDATE_AVAILABLE=false
+	RILL_REPAIR_AVAILABLE=false
+	[ -d "$(path /var/lock/rill-runtime-manager)" ] && _s_busy=true
+	legacy_feed_configured && _s_legacy=true
+	if [ -n "$RILL_PKGTYPE" ] && runtime_arch_supported; then _s_supported=true; fi
+	if [ "$RILL_PKGTYPE" != apk ] && [ "$RILL_PKGTYPE" != ipk ]; then
+		_s_error=unsupported-release; _s_message='OpenWrt release is outside the verified package matrix.'
+	elif { [ "$RILL_PKGTYPE" = apk ] && ! command -v apk >/dev/null 2>&1; } || { [ "$RILL_PKGTYPE" = ipk ] && ! command -v opkg >/dev/null 2>&1; }; then
+		_s_error=package-manager-unavailable; _s_message='The release package manager is unavailable.'
+	else
+		_fr_rc=0; feed_ready || _fr_rc=$?
+		case "$_fr_rc" in
+			0)
+				_s_feed=true
+				cfi_update_available && RILL_CFI_UPDATE_AVAILABLE=true
+				pm_update_available && RILL_PM_UPDATE_AVAILABLE=true
+				{ [ "$RILL_CFI_UPDATE_AVAILABLE" = true ] || [ "$RILL_PM_UPDATE_AVAILABLE" = true ]; } && RILL_CLIENT_UPDATE_AVAILABLE=true
+				;;
+			2) _s_error=trust-key-missing; _s_message='The Yun feed trust key or signature enforcement is missing.' ;;
+			*) _s_error=feed-not-configured; _s_message='Configure the matching signed Yun feed before managing packages.' ;;
+		esac
+	fi
+	_s_channel="$(runtime_channel)"
+	if [ "$_s_channel" = stable ] && package_installed "$RILL_RUNTIME_PACKAGE"; then
+		_s_installed=true
+		_s_version="$(package_version "$RILL_RUNTIME_PACKAGE")"
+		if [ -x "$(path "$RILL_RUNTIME_PATH")" ]; then
+			consumer_manifests_compatible "$_s_version" && _s_compatible=true
+		else
+			_s_error=runtime-binary-missing
+			_s_message='Stable Runtime package is installed but its binary is missing.'
+		fi
+		if [ "$_s_feed" = true ] && runtime_update_available; then _s_update=true; fi
+	elif [ "$_s_channel" = legacy-preview ] && package_installed "$RILL_LEGACY_PREVIEW_PACKAGE"; then
+		_s_installed=true
+		_s_version="$(package_version "$RILL_LEGACY_PREVIEW_PACKAGE")"
+		_s_error=legacy-runtime-migration-required
+		_s_message='Legacy Preview Runtime is installed. Remove it explicitly with the system package manager before installing canonical Stable.'
+		if [ -x "$(path "$RILL_RUNTIME_PATH")" ]; then
+			consumer_manifests_compatible "$_s_version"
+			_s_compat_rc=$?
+			if [ "$_s_compat_rc" = 0 ]; then
+				_s_compatible=true
+			elif [ -z "$_s_error" ]; then
+				if [ "$_s_compat_rc" = 2 ]; then
+					_s_error=consumer-compatibility-unknown
+					_s_message='An installed consumer has no valid Runtime compatibility manifest.'
+				else
+					_s_error=consumer-runtime-incompatible
+					_s_message='The installed Runtime is outside an installed consumer compatibility range.'
+				fi
+			fi
+		else
+			_s_error=legacy-runtime-migration-required
+			_s_message='Legacy Preview is installed but its Runtime binary is missing. Remove the package explicitly before installing Stable.'
+
+		fi
+		_s_update=false
+	elif [ "$_s_channel" = unknown ]; then
+		_s_error=unknown-runtime-owner; _s_message='A Runtime binary exists without a recognized package owner.'
+	elif [ "$_s_supported" != true ]; then
+		_s_error=runtime-unsupported-architecture; _s_message='The manager works here, but legacy Preview Runtime is not qualified for this architecture.'
+	fi
+	if [ "$_s_legacy" = true ] && [ "$_s_channel" != stable ] && [ "$_s_channel" != unknown ]; then
+		_s_error=legacy-feed-configured
+		_s_message='A legacy Rill feed is configured. Remove its source before managing packages through the unified Yun feed.'
+	fi
+	emit true "$_s_supported" "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$_s_installed" "$_s_channel" "$_s_version" "$_s_compatible" "$_s_update" "$_s_busy" "$_s_error" "$_s_message" "$_s_feed"
+}
+
+do_refresh() {
+	read_platform
+	[ -n "$RILL_PKGTYPE" ] || { emit false false "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false unsupported-release 'OpenWrt release is outside the verified package matrix.' false; return 1; }
+	_fr_rc=0; feed_ready || _fr_rc=$?
+	case "$_fr_rc" in
+		2) emit false "$(runtime_arch_supported && echo true || echo false)" "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false trust-key-missing 'The Yun feed trust key or signature enforcement is missing.' false; return 1 ;;
+		1) emit false "$(runtime_arch_supported && echo true || echo false)" "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false feed-not-configured 'Configure the matching signed Yun feed before managing packages.' false; return 1 ;;
+	esac
+	lock_acquire || { emit false "$(runtime_arch_supported && echo true || echo false)" "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false true package-manager-busy 'Another Runtime package operation is running.' true; return 1; }
+	trap lock_release EXIT HUP INT TERM
+	if feed_update >/dev/null 2>&1; then
+		trap - EXIT HUP INT TERM; lock_release
+		emit true "$(runtime_arch_supported && echo true || echo false)" "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(runtime_installed && echo true || echo false)" "$(runtime_channel)" "$(package_version "$RILL_RUNTIME_PACKAGE")" "$(package_installed "$RILL_RUNTIME_PACKAGE" && echo true || echo false)" "$(runtime_update_available && echo true || echo false)" false '' 'Package indexes refreshed from the configured Yun feed.' true
+	else
+		trap - EXIT HUP INT TERM; lock_release
+		emit false "$(runtime_arch_supported && echo true || echo false)" "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false "$(runtime_channel)" '' false false false feed-refresh-failed 'The package manager could not refresh the configured signed feed.' true
+		return 1
+	fi
+}
+
+do_package_action() {
+	_action="$1"
+	_package="$2"
+	case "$_package" in
+		rill-runtime|luci-app-cloudflare-ip|luci-app-performance-manager-all) ;;
+		*) emit false false "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false package-not-allowed 'This package is not in the management allowlist.' false; return 1 ;;
+	esac
+	read_platform
+	case "$_action" in install|update) ;; *) emit false false "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false "$(runtime_channel)" '' false false false package-action-not-supported 'Only install and update are supported for the canonical Stable package.' false; return 1 ;; esac
+	if [ -z "$RILL_PKGTYPE" ] || { [ "$RILL_PKGTYPE" = apk ] && ! command -v apk >/dev/null 2>&1; } || { [ "$RILL_PKGTYPE" = ipk ] && ! command -v opkg >/dev/null 2>&1; }; then
+		emit false false "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false unsupported-release 'The selected OpenWrt release or package manager is unsupported.' false
+		return 1
+	fi
+	if ! runtime_arch_supported; then
+		emit false false "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false runtime-unsupported-architecture 'Stable Runtime is not qualified for this architecture.' false
+		return 1
+	fi
+	if legacy_feed_configured; then
+		emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(runtime_installed && echo true || echo false)" "$(runtime_channel)" "$(package_version "$RILL_LEGACY_PREVIEW_PACKAGE")" false false false legacy-feed-configured 'A legacy Rill feed is configured. Remove its source before managing packages through the unified Yun feed.' false
+		return 1
+	fi
+	if package_installed "$RILL_LEGACY_PREVIEW_PACKAGE"; then
+		_version="$(package_version "$RILL_LEGACY_PREVIEW_PACKAGE")"
+		emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" true legacy-preview "$_version" false false false legacy-runtime-migration-required 'The legacy Preview package is still installed. Remove it explicitly with the system package manager before installing Stable Runtime or consumer packages; the manager will not replace package ownership implicitly.' false
+		return 1
+	fi
+	_rch="$(runtime_channel)"
+	if [ "$_rch" = unknown ]; then
+		emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false unknown '' false false false unknown-runtime-owner 'A Runtime binary exists without a recognized package owner.' false
+		return 1
+	fi
+	if [ "$_rch" = stable ] && [ ! -x "$(path "$RILL_RUNTIME_PATH")" ]; then
+		emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" true stable "$(package_version "$RILL_RUNTIME_PACKAGE")" false false false runtime-repair-required 'Stable Runtime package is installed but its binary is missing; repair it with the system package manager before managing consumers.' false
+		return 1
+	fi
+	RILL_RUNTIME_PIN=''
+	if [ "$_package" != "$RILL_RUNTIME_PACKAGE" ] && [ "$_rch" = stable ]; then
+		RILL_RUNTIME_PIN="$(package_version "$RILL_RUNTIME_PACKAGE")"
+	fi
+	if [ "$_action" = update ] && [ "$_package" != "$RILL_RUNTIME_PACKAGE" ] && [ "$_rch" != stable ]; then
+		emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false runtime-not-installed 'Install Stable Runtime before updating this consumer package.' false
+		return 1
+	fi
+	_fr_rc=0; feed_ready || _fr_rc=$?
+	case "$_fr_rc" in
+		2) emit false "$(runtime_arch_supported && echo true || echo false)" "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(runtime_installed && echo true || echo false)" "$_rch" "$(package_version "$RILL_RUNTIME_PACKAGE")" false false false trust-key-missing 'The Yun feed trust key or signature enforcement is missing.' false; return 1 ;;
+		1) emit false "$(runtime_arch_supported && echo true || echo false)" "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(runtime_installed && echo true || echo false)" "$_rch" "$(package_version "$RILL_RUNTIME_PACKAGE")" false false false feed-not-configured 'Configure the matching signed Yun feed before managing packages.' false; return 1 ;;
+	esac
+	lock_acquire || { emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(runtime_installed && echo true || echo false)" "$_rch" "$(package_version "$RILL_RUNTIME_PACKAGE")" false false true package-manager-busy 'Another Runtime package operation is running.' true; return 1; }
+	trap lock_release EXIT HUP INT TERM
+	if ! feed_update >/dev/null 2>&1; then
+		trap - EXIT HUP INT TERM; lock_release
+		emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(runtime_installed && echo true || echo false)" "$_rch" "$(package_version "$RILL_RUNTIME_PACKAGE")" false false false feed-refresh-failed 'The package manager could not refresh the configured signed feed.' true
+		return 1
+	fi
+	if [ "$_package" = "$RILL_RUNTIME_PACKAGE" ]; then
+		_cv="$(candidate_version "$RILL_RUNTIME_PACKAGE" "$_action")"
+		if [ -z "$_cv" ]; then
+			if [ "$_action" = update ] && package_installed "$RILL_RUNTIME_PACKAGE"; then
+				trap - EXIT HUP INT TERM; lock_release
+				emit true true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" true stable "$(package_version "$RILL_RUNTIME_PACKAGE")" true false false '' 'Stable Runtime is already up to date.' true
+				return 0
+			fi
+			trap - EXIT HUP INT TERM; lock_release
+			emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false runtime-package-unavailable 'The configured Yun feed has no Stable Runtime package for this release and architecture.' true
+			return 1
+		fi
+		consumer_manifests_compatible "$_cv"
+		_cv_rc=$?
+		if [ "$_cv_rc" != 0 ]; then
+			trap - EXIT HUP INT TERM; lock_release
+			if [ "$_cv_rc" = 2 ]; then
+				emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(package_installed "$RILL_RUNTIME_PACKAGE" && echo true || echo false)" "$_rch" "$(package_version "$RILL_RUNTIME_PACKAGE")" false false false consumer-compatibility-unknown 'An installed consumer has no valid Runtime compatibility manifest; the Stable package operation was blocked.' true
+			else
+				emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(package_installed "$RILL_RUNTIME_PACKAGE" && echo true || echo false)" "$_rch" "$(package_version "$RILL_RUNTIME_PACKAGE")" false false false consumer-runtime-incompatible 'The Stable Runtime candidate is outside an installed consumer compatibility range.' true
+			fi
+			return 1
+		fi
+	fi
+	case "$_action:$RILL_PKGTYPE" in
+		install:apk) if [ -n "$RILL_RUNTIME_PIN" ]; then apk add "$_package" "$RILL_RUNTIME_PACKAGE=$RILL_RUNTIME_PIN" >/dev/null 2>&1; else apk add "$_package" >/dev/null 2>&1; fi ;;
+		update:apk) if [ -n "$RILL_RUNTIME_PIN" ]; then apk upgrade "$_package" "$RILL_RUNTIME_PACKAGE=$RILL_RUNTIME_PIN" >/dev/null 2>&1; else apk upgrade "$_package" >/dev/null 2>&1; fi ;;
+		install:ipk) if [ -n "$RILL_RUNTIME_PIN" ]; then opkg install "$_package" "$RILL_RUNTIME_PACKAGE=$RILL_RUNTIME_PIN" >/dev/null 2>&1; else opkg install "$_package" >/dev/null 2>&1; fi ;;
+		update:ipk) if [ -n "$RILL_RUNTIME_PIN" ]; then opkg install "$_package" "$RILL_RUNTIME_PACKAGE=$RILL_RUNTIME_PIN" >/dev/null 2>&1; else opkg upgrade "$_package" >/dev/null 2>&1; fi ;;
+		*) _action_rc=1 ;;
+	esac
+	_action_rc=$?
+	trap - EXIT HUP INT TERM; lock_release
+	if [ "$_action_rc" = 0 ]; then
+		emit true "$(runtime_arch_supported && echo true || echo false)" "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(runtime_installed && echo true || echo false)" "$(runtime_channel)" "$(package_version "$RILL_RUNTIME_PACKAGE")" "$(package_installed "$RILL_RUNTIME_PACKAGE" && echo true || echo false)" "$(runtime_update_available && echo true || echo false)" false '' 'Package operation completed.' true
+	else
+		emit false "$(runtime_arch_supported && echo true || echo false)" "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(runtime_installed && echo true || echo false)" "$(runtime_channel)" "$(package_version "$RILL_RUNTIME_PACKAGE")" false false false package-manager-failed 'The package manager rejected the operation; check its logs and feed state.' true
+		return 1
+	fi
+}
+
+case "${1:-}" in
+	status) read_platform; status ;;
+	refresh) do_refresh ;;
+	install|repair|update) do_package_action "$1" "${2:-}" ;;
+	*) exit 2 ;;
+esac

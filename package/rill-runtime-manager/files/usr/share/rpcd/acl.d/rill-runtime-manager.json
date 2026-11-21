@@ -1,0 +1,15 @@
+{
+	"rill-runtime-manager": {
+		"description": "Manage the shared Preview Runtime through the configured Yun feed",
+		"read": {
+			"ubus": {
+				"rill-runtime-manager": [ "status" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"rill-runtime-manager": [ "refresh", "install", "repair", "update" ]
+			}
+		}
+	}
+}

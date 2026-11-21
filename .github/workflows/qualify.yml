@@ -34,6 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest tests.test_target_registry
+          python3 -m unittest tests.test_runtime_manager_package
           echo "matrix=$(python3 scripts/openwrt_targets.py --matrix)" >> "$GITHUB_OUTPUT"
 
   upstream-version-sync:
@@ -113,7 +114,7 @@ jobs:
             ${{ runner.temp }}/rustup
             ${{ runner.temp }}/cargo
             ${{ env.SDKDIR }}/build_dir/target-*/rill-ml-*/target
-          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('metadata/build-toolchain.json', 'package/rill-runtime/Makefile', 'package/rill-runtime-preview/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
+          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('metadata/build-toolchain.json', 'package/rill-runtime/Makefile', 'package/rill-runtime-manager/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
           restore-keys: |
             rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-
       - name: Prepare SDK and build package
@@ -126,10 +127,12 @@ jobs:
           ./scripts/feeds install rust
           mkdir -p package/rill-runtime
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime/." package/rill-runtime/
-          mkdir -p package/rill-runtime-preview
-          cp -a "$GITHUB_WORKSPACE/package/rill-runtime-preview/." package/rill-runtime-preview/
-          echo 'CONFIG_PACKAGE_rill-runtime=y' >> .config
-          echo 'CONFIG_PACKAGE_rill-runtime-preview=y' >> .config
+          mkdir -p package/rill-runtime-manager
+          cp -a "$GITHUB_WORKSPACE/package/rill-runtime-manager/." package/rill-runtime-manager/
+          {
+            echo 'CONFIG_PACKAGE_rill-runtime=y'
+            echo 'CONFIG_PACKAGE_rill-runtime-manager=y'
+          } >> .config
           bash "$GITHUB_WORKSPACE/scripts/configure_sdk.sh" "$SDKDIR" "$RUNNER_TEMP/sdk-defconfig.log"
           staging_dir=$(make -s val.STAGING_DIR)
           test -n "$staging_dir"
@@ -146,7 +149,7 @@ jobs:
           unset CI
           target=package/rill-runtime/compile
           jobs="$(($(nproc)+1))"
-          if make -j"$jobs" "$target" && make -j"$jobs" package/rill-runtime-preview/compile; then
+          if make -j"$jobs" "$target" package/rill-runtime-manager/compile; then
             exit 0
           else
             fast_rc=$?
@@ -169,40 +172,27 @@ jobs:
         run: |
           set -euo pipefail
           cd "$SDKDIR"
-          stable_file=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}" ! -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
-          preview_file=$(find bin -type f -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
+          manager_file=$(find bin -type f -name "rill-runtime-manager*.${{ matrix.pkgtype }}" -print -quit)
+          test -n "$manager_file"
+          stable_file=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}" ! -name "rill-runtime-manager*.${{ matrix.pkgtype }}" -print -quit)
           test -n "$stable_file"
-          test -n "$preview_file"
-          mkdir -p "$GITHUB_WORKSPACE/output" "$GITHUB_WORKSPACE/preview-output"
+          mkdir -p "$GITHUB_WORKSPACE/output"
           cp "$stable_file" "$GITHUB_WORKSPACE/output/rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
-          cp "$preview_file" "$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
           export RUSTUP_HOME="$RUNNER_TEMP/rustup" CARGO_HOME="$RUNNER_TEMP/cargo"
           staging_dir=$(make -s val.STAGING_DIR)
           export PATH="$staging_dir/host/bin:$CARGO_HOME/bin:$PATH"
           if ! command -v cargo-audit >/dev/null || ! cargo-audit --version | grep -Fx 'cargo-audit 0.22.2'; then
             (cd "$GITHUB_WORKSPACE" && cargo install cargo-audit --locked --version 0.22.2)
           fi
-          stable_version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["package"]["version"])' "$GITHUB_WORKSPACE/metadata/rill-runtime.json")
-          preview_commit=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["upstream"]["commit"])' "$GITHUB_WORKSPACE/metadata/rill-runtime-preview.json")
-          for channel in stable preview; do
-            if [ "$channel" = stable ]; then
-              source_name="rill-ml-$stable_version"
-              artifact="$GITHUB_WORKSPACE/output/rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
-              destination="$GITHUB_WORKSPACE/output/target-qualification-stable-${{ matrix.branch }}-${{ matrix.package_arch }}.json"
-            else
-              source_name="rill-ml-$preview_commit"
-              artifact="$GITHUB_WORKSPACE/preview-output/rill-runtime-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}"
-              destination="$GITHUB_WORKSPACE/preview-output/target-qualification-preview-${{ matrix.branch }}-${{ matrix.package_arch }}.json"
-            fi
-            mapfile -t sources < <(find "$SDKDIR/build_dir" -type d -name "$source_name")
-            test "${#sources[@]}" -eq 1
-            python3 "$GITHUB_WORKSPACE/scripts/collect_target_qualification.py" \
-              --package "$artifact" --channel "$channel" \
-              --openwrt-version '${{ matrix.release_version }}' \
-              --architecture '${{ matrix.package_arch }}' --pkgtype '${{ matrix.pkgtype }}' \
-              --source-dir "${sources[0]}" --sdk-dir "$SDKDIR" --sdk-archive-sha256 "$SDK_ARCHIVE_SHA256" --config-log "$RUNNER_TEMP/sdk-defconfig.log" --apk "$SDKDIR/staging_dir/host/bin/apk" \
-              --output "$destination"
-          done
+          source_name="rill-ml-$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["upstream"]["commit"])' "$GITHUB_WORKSPACE/metadata/rill-runtime.json")"
+          mapfile -t sources < <(find "$SDKDIR/build_dir" -type d -name "$source_name")
+          test "${#sources[@]}" -eq 1
+          python3 "$GITHUB_WORKSPACE/scripts/collect_target_qualification.py" \
+            --package "$GITHUB_WORKSPACE/output/rill-runtime-${{ matrix.branch }}-${{ matrix.package_arch }}.${{ matrix.pkgtype }}" --channel stable \
+            --openwrt-version '${{ matrix.release_version }}' \
+            --architecture '${{ matrix.package_arch }}' --pkgtype '${{ matrix.pkgtype }}' \
+            --source-dir "${sources[0]}" --sdk-dir "$SDKDIR" --sdk-archive-sha256 "$SDK_ARCHIVE_SHA256" --config-log "$RUNNER_TEMP/sdk-defconfig.log" --apk "$SDKDIR/staging_dir/host/bin/apk" \
+            --output "$GITHUB_WORKSPACE/output/target-qualification-stable-${{ matrix.branch }}-${{ matrix.package_arch }}.json"
       - name: Preserve raw dependency audit evidence, including failures
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -210,14 +200,13 @@ jobs:
           name: security-audit-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             output/security-audit-*
-            preview-output/security-audit-*
           if-no-files-found: warn
       - name: Generate per-target OpenWrt feed index
         shell: bash
         run: |
           set -euo pipefail
           cd "$SDKDIR"
-          package=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}" ! -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
+          package=$(find bin -type f -name "rill-runtime*.${{ matrix.pkgtype }}" ! -name "rill-runtime-manager*.${{ matrix.pkgtype }}" -print -quit)
           test -n "$package"
           feed_dir="$GITHUB_WORKSPACE/feed/${{ matrix.release_version }}/${{ matrix.openwrt_target }}/${{ matrix.openwrt_subtarget }}/${{ matrix.package_arch }}"
           mkdir -p "$feed_dir"
@@ -268,62 +257,6 @@ jobs:
             --arg packageRelease "$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")" \
             '{openwrtVersion:$version,target:$target,subtarget:$subtarget,packageArch:$packageArch,pkgtype:$pkgtype,package:$package,packageVersion:$packageVersion,packageRelease:($packageRelease|tonumber),signing:$signing}' \
             > "$feed_dir/feed-metadata.json"
-      - name: Generate per-target Preview feed index
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd "$SDKDIR"
-          package=$(find bin -type f -name "rill-runtime-preview*.${{ matrix.pkgtype }}" -print -quit)
-          test -n "$package"
-          feed_dir="$GITHUB_WORKSPACE/preview-feed/${{ matrix.release_version }}/${{ matrix.openwrt_target }}/${{ matrix.openwrt_subtarget }}/${{ matrix.package_arch }}"
-          mkdir -p "$feed_dir"
-          cp "$package" "$feed_dir/$(basename "$package")"
-          case "${{ matrix.pkgtype }}" in
-            ipk)
-              (
-                cd "$feed_dir"
-                mkhash="$RUNNER_TEMP/openwrt-mkhash"
-                cat > "$mkhash" <<'EOF'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          test "$1" = sha256
-          sha256sum "$2" | awk '{print $1}'
-          EOF
-                chmod +x "$mkhash"
-                MKHASH="$mkhash" "$SDKDIR/scripts/ipkg-make-index.sh" . > Packages.manifest
-                grep -vE '^(Maintainer|LicenseFiles|Source|SourceName|Require|SourceDateEpoch)' Packages.manifest > Packages
-                gzip -9nc Packages > Packages.gz
-              )
-              ;;
-            apk)
-              test -x "$SDKDIR/staging_dir/host/bin/apk"
-              (
-                cd "$feed_dir"
-                "$SDKDIR/staging_dir/host/bin/apk" mkndx \
-                  --root "$SDKDIR" \
-                  --keys-dir "$SDKDIR" \
-                  --allow-untrusted \
-                  --output packages.adb \
-                  ./*.apk
-              )
-              ;;
-            *)
-              echo "unsupported feed package type" >&2
-              exit 1
-              ;;
-          esac
-          jq -n \
-            --arg version "${{ matrix.release_version }}" \
-            --arg target "${{ matrix.openwrt_target }}" \
-            --arg subtarget "${{ matrix.openwrt_subtarget }}" \
-            --arg packageArch "${{ matrix.package_arch }}" \
-            --arg pkgtype "${{ matrix.pkgtype }}" \
-            --arg signing "unsigned" \
-            --arg package "rill-runtime-preview" \
-            --arg packageVersion "$(sed -n 's/^PKG_VERSION:=//p' "$GITHUB_WORKSPACE/package/rill-runtime-preview/Makefile")-r$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime-preview/Makefile")" \
-            --arg packageRelease "$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime-preview/Makefile")" \
-            '{openwrtVersion:$version,target:$target,subtarget:$subtarget,packageArch:$packageArch,pkgtype:$pkgtype,package:$package,packageVersion:$packageVersion,packageRelease:($packageRelease|tonumber),signing:$signing}' \
-            > "$feed_dir/feed-metadata.json"
       - name: Preserve official signing tools for promotion and transaction tests
         if: ${{ matrix.package_arch == 'x86_64' }}
         shell: bash
@@ -356,52 +289,16 @@ jobs:
           path: feed/
           if-no-files-found: error
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: rill-preview-feed-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: preview-feed/
-          if-no-files-found: error
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: rill-runtime-preview-${{ matrix.pkgtype }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: preview-output/
-          if-no-files-found: error
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: ${{ matrix.package_arch == 'x86_64' }}
         with:
           name: rill-openwrt-signing-tools-${{ matrix.pkgtype }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: signing-tools-${{ matrix.pkgtype }}.tar.gz
           if-no-files-found: error
 
-  preview-package-parity:
-    name: Preview package parity
-    if: always()
-    needs: [package]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          persist-credentials: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          pattern: rill-runtime-preview-*-${{ github.run_id }}-${{ github.run_attempt }}
-          path: preview-artifacts
-          merge-multiple: true
-      - name: Require one exact Preview package for every registered target
-        shell: bash
-        env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          set -euo pipefail
-          echo "$RESULTS" | jq -e 'to_entries | all(.value.result == "success")'
-          expected=$(python3 scripts/openwrt_targets.py --count)
-          actual=$(find preview-artifacts -type f \( -name '*.ipk' -o -name '*.apk' \) ! -name SHA256SUMS | wc -l | tr -d ' ')
-          test "$actual" -eq "$expected"
-
   qualification-evidence:
     name: Qualification evidence
     if: always()
-    needs: [upstream-version-sync, package, preview-package-parity, package-ownership, signing-contract]
+    needs: [upstream-version-sync, package, package-ownership, signing-contract]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -426,11 +323,6 @@ jobs:
           merge-multiple: true
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          pattern: rill-runtime-preview-*-${{ github.run_id }}-${{ github.run_attempt }}
-          path: evidence/artifacts
-          merge-multiple: true
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
           name: rill-openwrt-signing-tools-apk-${{ github.run_id }}-${{ github.run_attempt }}
           path: evidence/tools-archives
       - name: Prepare official APK inspector
@@ -450,7 +342,7 @@ jobs:
             --package-commit "$PACKAGE_COMMIT" --run-id "$GITHUB_RUN_ID" \
             --run-attempt "$GITHUB_RUN_ATTEMPT" --output qualification.json \
             --artifacts-dir evidence/artifacts --apk "$PWD/evidence/tools/bin/apk"
-          python3 scripts/verify_qualification.py qualification.json --channel preview \
+          python3 scripts/verify_qualification.py qualification.json --channel stable \
             --package-commit "$PACKAGE_COMMIT" \
             --artifacts-dir evidence/artifacts --apk "$PWD/evidence/tools/bin/apk"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -460,7 +352,7 @@ jobs:
           if-no-files-found: error
 
   package-ownership:
-    name: Real ${{ matrix.pkgtype }} ownership and state preservation
+    name: Stable ${{ matrix.pkgtype }} ownership and state preservation
     needs: [package]
     runs-on: ubuntu-latest
     strategy:
@@ -481,19 +373,12 @@ jobs:
           pattern: rill-runtime-${{ matrix.pkgtype }}-*-${{ github.run_id }}-${{ github.run_attempt }}
           path: owner-packages
           merge-multiple: true
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          pattern: rill-runtime-preview-${{ matrix.pkgtype }}-*-${{ github.run_id }}-${{ github.run_attempt }}
-          path: owner-packages
-          merge-multiple: true
-      - name: Test every registered target with the real package manager
+      - name: Test every registered target with its real package manager
         shell: bash
         env:
           PKGTYPE: ${{ matrix.pkgtype }}
         run: |
           set -euo pipefail
-          # APK's --usermode belongs to add, not del/update. Run isolated
-          # root transactions with scripts disabled, as in the SDK tests.
           if [ "$(id -u)" -ne 0 ]; then exec sudo --preserve-env=PKGTYPE bash "$0"; fi
           mkdir tools
           tar -xzf "tools-archives/signing-tools-$PKGTYPE.tar.gz" -C tools
@@ -503,21 +388,16 @@ jobs:
           import os, subprocess, sys
           sys.path.insert(0, 'scripts')
           from openwrt_targets import entries
-          kind = os.environ['PKGTYPE']
-          tool = 'opkg' if kind == 'ipk' else 'apk'
+          kind=os.environ['PKGTYPE'];tool='opkg' if kind=='ipk' else 'apk'
           for row in entries():
-              if row['pkgtype'] != kind:
-                  continue
-              suffix = 'v' + row['openwrtVersion'] + '-' + row['packageArch']
-              subprocess.run([
-                  'python3', '-B', 'scripts/verify_' + kind + '_ownership.py',
-                  '--' + tool, 'tools/bin/' + tool,
-                  '--stable', 'owner-packages/rill-runtime-' + suffix + '.' + kind,
-                  '--preview', 'owner-packages/rill-runtime-preview-' + suffix + '.' + kind,
-                  '--output', 'ownership-evidence/' + kind + '/' + suffix,
-              ], check=True)
+              if row['pkgtype']!=kind: continue
+              identity=f"v{row['openwrtVersion']}-{row['packageArch']}"
+              subprocess.run(['python3','-B',f'scripts/verify_{kind}_ownership.py',
+                  '--'+tool,f'tools/bin/{tool}',
+                  '--stable',f"owner-packages/rill-runtime-v{row['openwrtVersion']}-{row['packageArch']}.{kind}",
+                  '--output',f'ownership-evidence/{kind}/{identity}'],check=True)
           PY
-      - name: Preserve isolated installed databases with original permissions
+      - name: Preserve isolated ownership evidence
         if: always()
         shell: bash
         run: |
@@ -557,7 +437,7 @@ jobs:
           done
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: rill-runtime-feed-apk-v25.12.5-x86_64-${{ github.run_id }}-${{ github.run_attempt }}
+          name: rill-runtime-feed-apk-v25.12.6-x86_64-${{ github.run_id }}-${{ github.run_attempt }}
           path: apk-feed
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:

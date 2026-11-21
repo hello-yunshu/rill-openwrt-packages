@@ -46,6 +46,9 @@ def matrix() -> list[dict[str, object]]:
             "rust_target": item["rustTarget"],
             "pkgtype": item["pkgtype"],
             "elf_machine": item.get("elfMachine", "AArch64"),
+            "elf_class": item.get("elfClass", "ELF64"),
+            "elf_abi": item.get("elfABI"),
+            "elf_interpreter": item.get("elfInterpreter"),
             "support_tier": item.get("supportTier", "p0-openwrt-package"),
         }
         for item in entries()

@@ -26,23 +26,23 @@ def zipped(name,content):
 class QualifiedBytes(unittest.TestCase):
     def fixture(self):
         payload=b'opaque package fixture; real payload parser is separately exercised'
-        target={'artifact':'rill-runtime-preview-v24.10.8-x86_64.ipk','sha256':hashlib.sha256(payload).hexdigest(),
+        target={'artifact':'rill-runtime-v24.10.8-x86_64.ipk','sha256':hashlib.sha256(payload).hexdigest(),
                 'binarySha256':'e'*64,'openwrtVersion':'24.10.8','packageArch':'x86_64','pkgtype':'ipk',
-                'packageMetadata':{'name':'rill-runtime-preview','version':'1.5.6-r3','architecture':'x86_64'},
+                'packageMetadata':{'name':'rill-runtime','version':'1.5.6-r8','architecture':'x86_64','conflicts':['rill-runtime-preview']},
                 'elfClass':'ELF64','endianness':'little','elfMachine':'Advanced Micro Devices X86-64'}
-        proof={'schemaVersion':3,'runId':123,'runAttempt':2,'packageCommit':'a'*40,
-               'previewPackage':{'name':'rill-runtime-preview','version':'1.5.6','release':3,
-                   'upstream':{'commit':'b'*40},'targets':[target]}}
+        proof={'schemaVersion':4,'runId':123,'runAttempt':2,'packageCommit':'a'*40,
+               'package':{'name':'rill-runtime','version':'1.5.6','release':8},
+               'upstream':{'commit':'b'*40},'targets':[target]}
         raw=json.dumps(proof).encode()
-        contract={'preview':{'commit':'b'*40},'openwrtPackage':{'commit':'a'*40,'package':'rill-runtime-preview',
-            'packageVersion':'1.5.6','packageRelease':3},
+        contract={'resolved':{'upstreamCommit':'b'*40},'openwrtPackage':{'commit':'a'*40,'package':'rill-runtime',
+            'packageVersion':'1.5.6','packageRelease':8},
             'qualification':{'runId':123,'runAttempt':2,'manifestSha256':hashlib.sha256(raw).hexdigest()}}
         rows=[{'id':1,'name':'qualification-evidence-123-2','size_in_bytes':1024,'expired':False},
-              {'id':2,'name':'rill-runtime-preview-ipk-v24.10.8-x86_64-123-2','size_in_bytes':1024,'expired':False}]
+              {'id':2,'name':'rill-runtime-ipk-v24.10.8-x86_64-123-2','size_in_bytes':1024,'expired':False}]
         run={'head_sha':'a'*40,'status':'completed','conclusion':'success','run_attempt':2,'path':'.github/workflows/qualify.yml'}
         return contract,proof,raw,rows,run,payload,target
 
-    def test_matching_qualified_bytes_and_actual_binary_digest_are_required(self):
+    def test_stable_qualified_bytes_and_actual_binary_digest_are_required(self):
         contract,proof,raw,rows,run,payload,target=self.fixture()
         def api(path):return {'artifacts':rows} if '/artifacts?' in path else run
         def artifact(identifier):return zipped('qualification.json',raw) if identifier==1 else zipped(target['artifact'],payload)
@@ -51,28 +51,21 @@ class QualifiedBytes(unittest.TestCase):
             with patch.object(qualified,'api',api),patch.object(qualified,'artifact_bytes',artifact), \
                  patch.object(qualified.subprocess,'run'), \
                  patch.object(qualified.subprocess,'check_output',return_value=json.dumps(target)):
-                path,_=qualified.fetch_preview(contract,Path(directory),'24.10.8','x86_64','ipk',output)
+                path,_=qualified.fetch_qualified(contract,Path(directory),'24.10.8','x86_64','ipk',output)
                 self.assertEqual(path.read_bytes(),payload)
                 bad=dict(target,binarySha256='f'*64)
                 with patch.object(qualified.subprocess,'check_output',return_value=json.dumps(bad)):
                     with self.assertRaisesRegex(ValueError,'binarySha256'):
-                        qualified.fetch_preview(contract,Path(directory),'24.10.8','x86_64','ipk',Path(directory)/'bad')
+                        qualified.fetch_qualified(contract,Path(directory),'24.10.8','x86_64','ipk',Path(directory)/'bad')
                 self.assertFalse((Path(directory)/'bad').exists())
 
     def test_stable_consumer_uses_its_own_qualified_package_and_binary(self):
         contract,proof,raw,rows,run,payload,target=self.fixture()
-        target['artifact']=target['artifact'].replace('rill-runtime-preview','rill-runtime')
-        target['packageMetadata']['name']='rill-runtime'
-        proof['package']={key:value for key,value in proof['previewPackage'].items() if key not in ('upstream','targets')}
-        proof['package']['name']='rill-runtime';proof['upstream']={'commit':'c'*40};proof['targets']=[target]
-        raw=json.dumps(proof).encode();contract['qualification']['manifestSha256']=hashlib.sha256(raw).hexdigest()
-        contract['openwrtPackage']['package']='rill-runtime';contract['resolved']={'upstreamCommit':'c'*40}
-        rows[1]['name']=rows[1]['name'].replace('rill-runtime-preview','rill-runtime')
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(qualified,'fetch_manifest',return_value=(proof,raw,rows)), \
                  patch.object(qualified,'artifact_bytes',return_value=zipped(target['artifact'],payload)), \
                  patch.object(qualified.subprocess,'check_output',return_value=json.dumps(target)):
-                path,_=qualified.fetch_qualified(contract,Path(directory),'24.10.8','x86_64','ipk',Path(directory)/'out',channel='stable')
+                path,_=qualified.fetch_qualified(contract,Path(directory),'24.10.8','x86_64','ipk',Path(directory)/'out')
                 self.assertEqual(path.read_bytes(),payload)
 
     def test_rejects_wrong_run_attempt_workflow_and_package_before_output(self):
@@ -92,7 +85,7 @@ class QualifiedBytes(unittest.TestCase):
             with patch.object(qualified,'fetch_manifest',return_value=(proof,raw,rows)), \
                  patch.object(qualified,'artifact_bytes',return_value=zipped(target['artifact'],b'tampered')):
                 with self.assertRaisesRegex(ValueError,'digest mismatch'):
-                    qualified.fetch_preview(contract,Path(directory),'24.10.8','x86_64','ipk',output)
+                    qualified.fetch_qualified(contract,Path(directory),'24.10.8','x86_64','ipk',output)
                 self.assertFalse(output.exists())
 
     def test_bad_manifest_digest_or_missing_attempt_never_writes(self):
@@ -104,7 +97,7 @@ class QualifiedBytes(unittest.TestCase):
                 output=Path(directory)/'out'
                 with patch.object(qualified,'fetch_manifest',return_value=(proof,raw,rows)):
                     with self.assertRaises(ValueError):
-                        qualified.fetch_preview(bad,Path(directory),'24.10.8','x86_64','ipk',output)
+                        qualified.fetch_qualified(bad,Path(directory),'24.10.8','x86_64','ipk',output)
                 self.assertFalse(output.exists())
 
 

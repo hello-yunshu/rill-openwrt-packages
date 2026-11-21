@@ -1,0 +1,38 @@
+#!/bin/sh
+
+RPCD="$1"
+METHOD="${2:-}"
+BACKEND=/usr/libexec/rill-runtime-manager
+
+case "$RPCD" in
+	list)
+		cat <<'EOF'
+{
+	"status": {},
+	"refresh": {},
+	"install": { "package": "package" },
+	"repair": { "package": "package" },
+	"update": { "package": "package" }
+}
+EOF
+		;;
+	call)
+		case "$METHOD" in
+			status|refresh)
+				exec "$BACKEND" "$METHOD"
+				;;
+			install|repair|update)
+				input="$(cat)"
+				package="$(printf '%s' "$input" | jsonfilter -e '@.package' 2>/dev/null || true)"
+				exec "$BACKEND" "$METHOD" "$package"
+				;;
+			*)
+				printf '{"ok":false,"errorCode":"method-not-allowed","message":"Unsupported operation."}\n'
+				exit 1
+				;;
+		esac
+		;;
+	*)
+		exit 1
+		;;
+esac

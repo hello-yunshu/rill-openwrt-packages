@@ -68,45 +68,45 @@ def fetch_manifest(run_id,attempt,package_commit,package_dir):
     identifier=find_artifact(rows,f'qualification-evidence-{run_id}-{attempt}')
     raw=member(artifact_bytes(identifier),'qualification.json')
     data=json.loads(raw)
-    if data.get('schemaVersion')!=3 or data.get('runId')!=run_id or data.get('runAttempt')!=attempt:
+    if data.get('schemaVersion')!=4 or data.get('runId')!=run_id or data.get('runAttempt')!=attempt:
         raise ValueError('qualification manifest identity mismatch')
     verifier=package_dir/'scripts/verify_qualification.py'
     with tempfile.TemporaryDirectory(prefix='rill-manifest-') as directory:
         path=Path(directory)/'qualification.json';path.write_bytes(raw)
-        subprocess.run(['python3','-B',str(verifier),str(path),'--channel','preview','--package-commit',package_commit],check=True,capture_output=True,timeout=60)
+        subprocess.run(['python3','-B',str(verifier),str(path),'--channel','stable','--package-commit',package_commit],check=True,capture_output=True,timeout=60)
     return data,raw,rows
 
 
-def fetch_qualified(contract,package_dir,openwrt_version,architecture,pkgtype,output,apk="apk",channel="preview"):
-    if channel not in ('stable','preview'):raise ValueError('unsupported Runtime channel')
+def fetch_qualified(contract,package_dir,openwrt_version,architecture,pkgtype,output,apk="apk",channel="stable"):
+    if channel != 'stable':raise ValueError('only the canonical Stable Runtime package is published')
     qualification=contract['qualification'];run_id=qualification['runId'];attempt=qualification.get('runAttempt')
     if type(attempt) is not int or attempt<=0:raise ValueError('contract has no qualified run attempt')
     data,raw,rows=fetch_manifest(run_id,attempt,contract['openwrtPackage']['commit'],package_dir)
     if hashlib.sha256(raw).hexdigest()!=qualification.get('manifestSha256'):
         raise ValueError('qualification manifest digest differs from contract')
-    preview=data['previewPackage'] if channel=='preview' else data['package']
-    upstream=preview['upstream'] if channel=='preview' else data['upstream']
-    expected_commit=contract['preview']['commit'] if channel=='preview' else contract['resolved']['upstreamCommit']
+    qualified_package=data['package']
+    upstream=data['upstream']
+    expected_commit=contract['resolved']['upstreamCommit']
     if upstream['commit']!=expected_commit:
-        raise ValueError('qualified Preview source differs from consumer contract')
-    package=contract['openwrtPackage']
-    if any(preview[key]!=package[field] for key,field in [('name','package'),('version','packageVersion'),('release','packageRelease')]):
-        raise ValueError('qualified Preview package differs from consumer contract')
-    targets=preview['targets'] if channel=='preview' else data['targets']
+        raise ValueError('qualified Stable source differs from consumer contract')
+    expected_package=contract['openwrtPackage']
+    if any(qualified_package[key]!=expected_package[field] for key,field in [('name','package'),('version','packageVersion'),('release','packageRelease')]):
+        raise ValueError('qualified Stable package differs from consumer contract')
+    targets=data['targets']
     matches=[row for row in targets if row['openwrtVersion']==openwrt_version and row['packageArch']==architecture and row['pkgtype']==pkgtype]
     if len(matches)!=1:raise ValueError('qualified target does not resolve uniquely')
     target=matches[0]
-    identifier=find_artifact(rows,f"{'rill-runtime-preview' if channel=='preview' else 'rill-runtime'}-{pkgtype}-v{openwrt_version}-{architecture}-{run_id}-{attempt}")
+    identifier=find_artifact(rows,f"rill-runtime-{pkgtype}-v{openwrt_version}-{architecture}-{run_id}-{attempt}")
     payload=member(artifact_bytes(identifier),target['artifact'])
     if hashlib.sha256(payload).hexdigest()!=target['sha256']:
         raise ValueError('downloaded qualified package digest mismatch')
-    with tempfile.TemporaryDirectory(prefix='qualified-preview-') as directory:
+    with tempfile.TemporaryDirectory(prefix='qualified-runtime-') as directory:
         candidate=Path(directory)/target['artifact'];candidate.write_bytes(payload)
         inspected=json.loads(subprocess.check_output(['python3','-B',str(package_dir/'scripts/inspect_runtime_package.py'),
-            str(candidate),'--name',preview['name'],'--architecture',architecture,
-            '--version',f"{preview['version']}-r{preview['release']}",'--apk',apk],text=True,timeout=60))
-        for field in ('binarySha256','sha256','packageMetadata','elfClass','endianness','elfMachine'):
-            if inspected[field]!=target[field]:raise ValueError('actual qualified payload differs: '+field)
+            str(candidate),'--name',qualified_package['name'],'--architecture',architecture,
+            '--version',f"{qualified_package['version']}-r{qualified_package['release']}",'--apk',apk],text=True,timeout=60))
+        for field in ('binarySha256','sha256','packageMetadata','elfClass','endianness','elfMachine','elfABI'):
+            if inspected.get(field)!=target.get(field):raise ValueError('actual qualified payload differs: '+field)
     output.mkdir(parents=True,exist_ok=True)
     path=output/target['artifact']
     if path.exists() and path.read_bytes()!=payload:raise ValueError('refusing to overwrite different existing package bytes')
@@ -117,14 +117,10 @@ def fetch_qualified(contract,package_dir,openwrt_version,architecture,pkgtype,ou
     return path,target
 
 
-def fetch_preview(*args, **kwargs):
-    return fetch_qualified(*args, **kwargs, channel="preview")
-
-
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--contract',type=Path,required=True)
-    parser.add_argument('--channel',choices=['stable','preview'],required=True)
+    parser.add_argument('--channel',choices=['stable'],default='stable')
     parser.add_argument('--package-dir',type=Path,required=True)
     parser.add_argument('--openwrt-version',required=True)
     parser.add_argument('--architecture',required=True)

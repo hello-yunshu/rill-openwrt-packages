@@ -7,16 +7,12 @@ from scripts.verify_qualification import verify
 
 class EvidenceAssembly(unittest.TestCase):
     def records(self):
-        evidence=fixtures.QualificationChannelTests().evidence()
+        evidence=fixtures.StableQualificationTests().evidence()
         result=[]
-        for channel in ('stable','preview'):
-            package=evidence['package'] if channel=='stable' else evidence['previewPackage']
-            upstream=evidence['upstream'] if channel=='stable' else package['upstream']
-            build=evidence['build'] if channel=='stable' else package['build']
-            rows=evidence['targets'] if channel=='stable' else package['targets']
-            for row in rows:
-                result.append({**row,'channel':channel,'upstream':upstream,'build':build,
-                               'package':{key:value for key,value in package.items() if key in ['name','recipe','binary','version','release','channel']}})
+        package=evidence['package'];upstream=evidence['upstream'];build=evidence['build']
+        for row in evidence['targets']:
+            result.append({**row,'channel':'stable','upstream':upstream,'build':build,
+                           'package':{key:value for key,value in package.items() if key in ['name','recipe','binary','version','release']}})
         return result
 
     def test_complete_real_inspection_records_form_strict_manifest(self):

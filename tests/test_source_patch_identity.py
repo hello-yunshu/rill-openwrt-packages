@@ -9,12 +9,10 @@ ROOT=Path(__file__).resolve().parents[1]
 
 
 class SourcePatchIdentity(unittest.TestCase):
-    def test_declared_channel_patches_bind_their_immutable_upstream_base(self):
-        for name in ['rill-runtime','rill-runtime-preview']:
-            meta=json.loads((ROOT/'metadata'/(name+'.json')).read_text())
-            records=inspect(ROOT,meta)
-            for record in records:
-                self.assertEqual(record['baseCommit'],meta['upstream']['commit'])
+    def test_canonical_stable_source_has_no_downstream_patch_overlay(self):
+        meta=json.loads((ROOT/'metadata/rill-runtime.json').read_text())
+        self.assertEqual(meta['upstream']['sourcePatches'],[])
+        self.assertEqual(inspect(ROOT,meta),[])
 
     def test_replaced_patch_base_and_lock_are_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

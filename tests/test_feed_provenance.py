@@ -1,7 +1,9 @@
 import hashlib
+import io
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 
 from scripts.build_feed_manifest import main as build_manifest
@@ -37,46 +39,17 @@ class FeedProvenanceTests(unittest.TestCase):
             self.assertEqual({leaf["index"] for leaf in manifest["leaves"]}, {"Packages", "packages.adb"})
 
 
-class PreviewFeedProvenanceTests(unittest.TestCase):
-    def test_preview_manifest_uses_preview_identity_and_stays_out_of_production(self):
+class RetiredPreviewFeedTests(unittest.TestCase):
+    def test_preview_channel_is_no_longer_a_publishing_option(self):
         import sys
         from unittest.mock import patch
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            feed = root / "preview"
-            make_feed(feed, package_name="rill-runtime-preview", release=6)
-            qualification = root / "qualification.json"
-            upstream = {"tag": "v1.5.6", "commit": "b" * 40, "archiveSha256": "c" * 64}
-            qualification.write_text(json.dumps({
-                "schemaVersion": 3, "packageCommit": "a" * 40, "runId": "42169166493", "runAttempt": 1,
-                "qualificationState": "automated-qualification",
-                "package": {"name": "rill-runtime", "version": "1.5.6", "release": 4},
-                "previewPackage": {"name": "rill-runtime-preview", "version": "1.5.6", "release": 6,
-                                   "upstream": upstream, "targets": []},
-                "upstream": upstream,
-            }), encoding="utf-8")
-            usign_key = root / "usign.pub"
-            usign_key.write_bytes(b"usign-key")
-            apk_key = root / "apk.pub"
-            apk_key.write_bytes(b"apk-key")
-            output = root / "manifest.json"
-            with patch.object(sys, "argv", [
-                "build_feed_manifest.py", str(feed), str(qualification), str(output),
-                "--channel", "preview", "--public-key", str(usign_key),
-                "--apk-public-key", str(apk_key), "--key-id", "test-key",
-                "--release-url", "https://github.com/hello-yunshu/rill-openwrt-packages/releases/tag/v1.5.6-r4",
-            ]):
-                with patch("scripts.verify_qualification.verify", return_value=[]):
-                    self.assertEqual(build_manifest(), 0)
-            manifest = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(manifest["channel"], "preview")
-            self.assertEqual(manifest["package"], "rill-runtime-preview")
-            self.assertEqual(manifest["packageVersionRelease"], "1.5.6-r6")
-            self.assertEqual(manifest["releaseTag"], "v1.5.6-r4")
-            self.assertTrue(manifest["releaseUrl"].endswith("/v1.5.6-r4"))
-            self.assertFalse(manifest["productionFeedEligible"])
-            self.assertEqual(manifest["signing"]["status"], "signed")
-            self.assertEqual(len(manifest["leaves"]), len(entries()))
+            root=Path(temporary);feed=root/'feed';make_feed(feed)
+            qualification=root/'qualification.json';qualification.write_text('{}')
+            output=root/'manifest.json'
+            with patch.object(sys,'argv',['build_feed_manifest.py',str(feed),str(qualification),str(output),'--channel','preview']):
+                with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):build_manifest()
+            self.assertFalse(output.exists())
 
 
 class FeedPromotionGuardTests(unittest.TestCase):

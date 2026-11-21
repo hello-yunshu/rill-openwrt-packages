@@ -1,104 +1,78 @@
 import argparse
 import copy
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
+from scripts import inspect_runtime_package
 from scripts.verify_qualification import verify
 from scripts.openwrt_targets import entries
 
 
-def arguments(channel='preview'):
+def arguments(channel='stable'):
     return argparse.Namespace(package_commit=None, version=None, release=None,
         upstream_repository=None, upstream_tag=None, upstream_commit=None,
         openwrt_version=None, package_arch=None, pkgtype=None, channel=channel)
 
 
-class QualificationChannelTests(unittest.TestCase):
-    def test_legacy_preview_summary_without_binary_identity_is_not_qualification(self):
-        data={'schemaVersion':2,'qualificationState':'automated-qualification','releaseEligible':True,
-              'package':{'name':'rill-runtime','recipe':'package/rill-runtime/Makefile'},
-              'upstream':{'commit':'a'*40,'archiveSha256':'b'*64},
-              'previewPackage':{'qualificationState':'PASS','upstreamCommit':'c'*40},
-              'targets':[{'qualificationState':'PASS','sha256':'d'*64,'openwrtVersion':'24.10.8',
-                          'packageArch':'x86_64','pkgtype':'ipk','binary':'/usr/bin/rill-runtime'}]}
-        self.assertTrue(verify(data,arguments()),'summary cannot qualify Preview bytes')
-
-    def test_historical_stable_reader_requires_explicit_opt_in(self):
-        data={'schemaVersion':2,'qualificationState':'automated-qualification','releaseEligible':True,
-              'package':{'name':'rill-runtime','recipe':'package/rill-runtime/Makefile'},
-              'upstream':{'commit':'a'*40,'archiveSha256':'b'*64},
-              'targets':[{'qualificationState':'PASS','sha256':'c'*64,'openwrtVersion':'24.10.8',
-                          'packageArch':'x86_64','pkgtype':'ipk','binary':'/usr/bin/rill-runtime'}]}
-        args=arguments('stable')
-        self.assertTrue(verify(data,args))
-        args.allow_legacy_stable=True
-        self.assertEqual(verify(data,args),[])
-        args.channel='preview'
-        self.assertTrue(verify(data,args))
-
+class StableQualificationTests(unittest.TestCase):
     def evidence(self):
-        channels=[]
-        for name in ('rill-runtime','rill-runtime-preview'):
-            rows=[]
-            for item in entries():
-                rows.append({**item,'artifact':f"{name}-v{item['openwrtVersion']}-{item['packageArch']}.{item['pkgtype']}",
-                    'sha256':'d'*64,'binarySha256':'e'*64,'qualificationState':'PASS',
-                    'sdk':{'openwrtVersion':item['openwrtVersion'],'archiveSha256':'a'*64,'configurationLogSha256':'b'*64,
-                        'feeds':{'base':{'source':'official-base-tag','commit':'a'*40},'packages':{'source':'official-packages-commit','commit':'b'*40}}},
-                    'resolvedWasmtime':{'engine':'wasmtime v99.2.3','features':['component-model','runtime','cranelift','pulley']},
-                    'securityAudit':{'sourceLockSha256':'c'*64,'vulnerabilityCount':0,'warnings':{},'ignoredAdvisories':[],
-                        'database':{'last-commit':'a'*40,'last-updated':'2026-10-15T00:00:00Z'}},
-                    'binary':'/usr/bin/rill-runtime','interpreter':'/lib/ld-musl-'+('x86_64' if item['packageArch']=='x86_64' else 'aarch64')+'.so.1','elfClass':'ELF64','endianness':'little',
-                    'packageMetadata':{'name':name,'version':'1.5.6-r3','architecture':item['packageArch']}})
-            channels.append({'name':name,'recipe':f'package/{name}/Makefile','binary':'/usr/bin/rill-runtime',
-                'version':'1.5.6','release':3,'channel':'preview-exact-commit' if name.endswith('-preview') else 'stable',
-                'upstream':{'commit':'a'*40,'archiveSha256':'b'*64,'repository':'hello-yunshu/rill-ml',
-                    'version':'1.5.6','tag':'preview-exact-commit' if name.endswith('-preview') else 'v1.5.6'},
-                'build':{'sourceLockSha256':'c'*64,'rustToolchain':'1.96.0','runtimeFeatures':['wasm'],'defaultFeatures':True,
-                    'verifiedSource':{'baseCommit':'a'*40,'gitTree':'b'*40,'patchedTreeSha256':'c'*64}},
-                'targets':rows})
-        stable,preview=channels
-        return {'schemaVersion':3,'qualificationState':'automated-qualification','releaseEligible':True,
-                'packageCommit':'f'*40,'runId':123,'runAttempt':2,'package':stable,
-                'upstream':stable['upstream'],'build':stable['build'],'targets':stable['targets'],
-                'previewPackage':preview}
+        rows=[]
+        for item in entries():
+            arm=item['packageArch']=='arm_cortex-a7_neon-vfpv4'
+            loader=item.get('elfInterpreter') or ('/lib/ld-musl-x86_64.so.1' if item['packageArch']=='x86_64' else '/lib/ld-musl-aarch64.so.1')
+            rows.append({**item,'artifact':f"rill-runtime-v{item['openwrtVersion']}-{item['packageArch']}.{item['pkgtype']}",
+                'sha256':'d'*64,'binarySha256':'e'*64,'qualificationState':'PASS',
+                'sdk':{'openwrtVersion':item['openwrtVersion'],'archiveSha256':'a'*64,'configurationLogSha256':'b'*64,
+                    'feeds':{'base':{'source':'official-base-tag','commit':'a'*40},'packages':{'source':'official-packages-commit','commit':'b'*40}}},
+                'resolvedWasmtime':{'engine':'wasmtime v49.0.6','features':['component-model','runtime','cranelift','pulley']},
+                'securityAudit':{'sourceLockSha256':'c'*64,'vulnerabilityCount':0,'warnings':{},'ignoredAdvisories':[],
+                    'database':{'last-commit':'a'*40,'last-updated':'2026-11-21T00:00:00Z'}},
+                'binary':'/usr/bin/rill-runtime','interpreter':loader,'elfClass':'ELF32' if arm else 'ELF64','elfABI':item.get('elfABI'),'endianness':'little',
+                'packageMetadata':{'name':'rill-runtime','version':'1.5.6-r8','architecture':item['packageArch'],'conflicts':['rill-runtime-preview']}})
+        return {'schemaVersion':4,'qualificationState':'automated-qualification','releaseEligible':True,
+            'packageCommit':'f'*40,'runId':123,'runAttempt':2,
+            'package':{'name':'rill-runtime','recipe':'package/rill-runtime/Makefile','binary':'/usr/bin/rill-runtime','version':'1.5.6','release':8},
+            'upstream':{'commit':'1e962a82443088229714877eee98617f1596eee8','sourceType':'immutable-git-commit',
+                'repository':'hello-yunshu/rill-ml','version':'1.5.6','tag':'stable-main-1e962a8','sourcePatches':[]},
+            'build':{'sourceLockSha256':'c'*64,'rustToolchain':'1.96.0','runtimeFeatures':['wasm'],'defaultFeatures':True,'sourcePatches':[],
+                'verifiedSource':{'baseCommit':'1e962a82443088229714877eee98617f1596eee8','gitTree':'b'*40,'patchedTreeSha256':'c'*64}},'targets':rows}
 
-    def test_complete_two_channel_registry_passes(self):
+    def test_stable_only_matrix_passes(self):
         self.assertEqual(verify(self.evidence(),arguments()),[])
 
-    def test_rejects_missing_or_replaced_channel_evidence(self):
-        mutations=[
-            lambda d:d['previewPackage']['targets'].pop(),
-            lambda d:d['previewPackage']['targets'].append(copy.deepcopy(d['previewPackage']['targets'][0])),
-            lambda d:d['previewPackage']['targets'][0].pop('binarySha256'),
-            lambda d:d['previewPackage']['targets'][0].update(qualificationState='SKIPPED'),
-            lambda d:d['previewPackage']['targets'][0]['packageMetadata'].update(architecture='wrong'),
-            lambda d:d['previewPackage']['targets'][0].update(elfMachine='wrong'),
-            lambda d:d['previewPackage']['build'].update(defaultFeatures=False),
-            lambda d:d['previewPackage']['build'].pop('sourceLockSha256'),
-            lambda d:d['previewPackage']['build'].pop('verifiedSource'),
-            lambda d:d['previewPackage']['targets'][0].pop('securityAudit'),
-            lambda d:d['previewPackage']['targets'][0]['securityAudit'].update(vulnerabilityCount=1),
-            lambda d:d['previewPackage']['targets'][0]['securityAudit'].update(ignoredAdvisories=['RUSTSEC-test']),
-            lambda d:d['previewPackage']['upstream'].update(repository='wrong/owner'),
-            lambda d:d['previewPackage']['targets'][0].pop('sdk'),
-            lambda d:d['previewPackage']['targets'][0].pop('resolvedWasmtime'),
-            lambda d:d['previewPackage']['targets'][0]['resolvedWasmtime']['features'].append('component-model-async'),
+    def test_actual_package_inspection_allows_missing_abi_for_non_arm_targets(self):
+        data=self.evidence()
+        by_arch={row['packageArch']:row for row in data['targets']}
+        def inspected(path,name,architecture,version,tool='apk'):
+            row=by_arch[architecture]
+            fields=('sha256','binarySha256','elfClass','endianness','elfMachine','interpreter','packageMetadata')
+            result={field:row.get(field) for field in fields}
+            if architecture=='arm_cortex-a7_neon-vfpv4':
+                result['elfABI']=row['elfABI']
+            return result
+        args=arguments();args.artifacts_dir=Path(tempfile.gettempdir());args.apk='apk'
+        with patch.object(inspect_runtime_package,'inspect',side_effect=inspected):
+            self.assertEqual(verify(data,args),[])
+
+    def test_rejects_preview_and_malformed_stable_evidence(self):
+        self.assertTrue(verify(self.evidence(),arguments('preview')))
+        for mutation in (
+            lambda d:d['targets'].pop(),
+            lambda d:d['targets'][0].pop('binarySha256'),
+            lambda d:d['targets'][0].update(qualificationState='SKIPPED'),
+            lambda d:d['targets'][0]['packageMetadata'].update(architecture='wrong'),
+            lambda d:d['targets'][0]['securityAudit'].update(vulnerabilityCount=1),
             lambda d:d.update(runAttempt=0),
             lambda d:d.update(releaseEligible=False),
-        ]
-        for mutation in mutations:
+        ):
             data=self.evidence();mutation(data)
             with self.subTest(mutation=mutation):self.assertTrue(verify(data,arguments()))
 
-    def test_immutable_identity_includes_preview_binary_source_and_toolchain(self):
-        from scripts.release_identity import semantic_identity
-        original=self.evidence()
-        expected=semantic_identity(original)
-        for mutate in [
-            lambda d:d['previewPackage']['targets'][0].update(binarySha256='f'*64),
-            lambda d:d['previewPackage']['upstream'].update(commit='f'*40),
-            lambda d:d['previewPackage']['build'].update(rustToolchain='1.97.0'),
-        ]:
-            changed=copy.deepcopy(original);mutate(changed)
-            self.assertNotEqual(semantic_identity(changed),expected)
-        repeat=copy.deepcopy(original);repeat.update(runId=987,runAttempt=9)
-        self.assertEqual(semantic_identity(repeat),expected)
+    def test_armv7_still_requires_hard_float_identity(self):
+        data=self.evidence();row=next(x for x in data['targets'] if x['packageArch']=='arm_cortex-a7_neon-vfpv4')
+        self.assertEqual(row['elfClass'],'ELF32');self.assertEqual(row['elfABI'],'EABI5 hard-float')
+        row['elfABI']='EABI5 soft-float'
+        self.assertTrue(verify(data,arguments()))
+
+if __name__=='__main__':unittest.main()

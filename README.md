@@ -1,7 +1,7 @@
 # Rill OpenWrt Packages
 
 面向 OpenWrt 的 Rill 通用 Runtime 打包仓库。这里负责将
-[RillML](https://github.com/hello-yunshu/rill-ml) 的已发布 Stable 版本制作成
+[RillML](https://github.com/hello-yunshu/rill-ml) 的固定 Git commit 制作成
 可审计、可复现、可供下游消费的 OpenWrt 软件包。
 
 > 中文文档是本文档的主体；[English README](README.en.md) 提供简要英文说明。
@@ -19,18 +19,18 @@
 | --- | --- |
 | Stable 包名 | <code>rill-runtime</code> |
 | 安装路径 | <code>/usr/bin/rill-runtime</code> |
-| 上游来源 | RillML 已发布的 Stable tag archive |
-| 当前来源版本 | <code>v1.5.6</code> |
-| 当前上游 commit | <code>b990cd7043d313b0ff29c9693f091a94a5bdaf47</code> |
+| 上游来源 | RillML upstream main 的 immutable commit |
+| 当前来源版本 | <code>1.5.6</code> |
+| 当前上游 commit | <code>1e962a82443088229714877eee98617f1596eee8</code> |
+| 当前包版本 | <code>1.5.6-r8</code> |
 | 包许可证 | MIT |
 | 包维护者 | Rill OpenWrt Packages maintainers |
 | 分发 Release | [rill-runtime releases](https://github.com/hello-yunshu/rill-openwrt-packages/releases) |
 
-Preview 通道使用同一仓库中的独立 <code>rill-runtime-preview</code> 包：它固定到
-metadata 中的 exact upstream commit，使用同样的安装路径，但不与 Stable 包同时
-安装；qualification workflow 会构建并检查每个注册目标的 Preview artifact。
-该通道是消费方中立的通用 Runtime 出口，不绑定任何宿主产品；当前已知消费方
-包括 Cloudflare IP 与 Performance Manager。
+当前只发布一个 canonical Stable 包 <code>rill-runtime</code>。它固定到上游 main commit
+<code>1e962a82443088229714877eee98617f1596eee8</code>，使用 Rust 1.96.0 构建。
+旧设备上可能仍安装有历史 <code>rill-runtime-preview</code>；manager 会识别该包作为迁移状态。
+新资格、feed 和 Release 均只包含 <code>rill-runtime</code>。
 
 它只分发通用 Runtime 可执行文件，不把 OpenWrt 产品逻辑塞进 Rill：
 
@@ -50,9 +50,10 @@ GitHub Actions 的 canonical qualification workflow 从
 OpenWrt Runtime target、package arch、package format 和 Rust target 的唯一事实来源。
 
 这张表只描述仓库实际执行过的 qualification 矩阵。其他架构、其他 OpenWrt
-版本和真实设备必须单独构建、安装、运行并保存证据；当前矩阵只证明
-x86_64、aarch64_generic 与 aarch64_cortex-a53 的包级 qualification，不能从存在 Rust target
-或能够交叉编译推导出 MIPS、ARMv7 或其他设备架构已支持。
+版本和真实设备必须单独构建、安装、运行并保存证据；当前矩阵覆盖
+x86_64、aarch64_generic、aarch64_cortex-a53/a72/a76 和
+arm_cortex-a7_neon-vfpv4，不能从存在 Rust target 或能够交叉编译推导出
+其他设备架构已支持。
 
 ## 快速开始
 
@@ -82,116 +83,63 @@ APK 示例：
 
     apk add rill-runtime
 
-生成的 IPK 文件名形如 `rill-runtime_1.5.6-1_x86_64.ipk`；Release 资产则使用
-目标限定名，例如 `rill-runtime-v24.10.8-x86_64.ipk`。生产安装应通过
-已签名 feed 的包名解析，而不是绕过索引安装本地文件。安装后可检查：
+生成的 IPK 文件名形如 `rill-runtime_1.5.6-8_x86_64.ipk`；Release 资产使用目标限定名。安装后可检查：
 
     /usr/bin/rill-runtime --version
 
 包的安装内容必须保持为 Runtime 主程序；不要把本地构建目录中的
 <code>rill-pack</code> 或其他开发产物复制进设备。
 
-### Preview 包（<code>rill-runtime-preview</code>）
+### 历史 Preview 包迁移
 
-Preview 通道是独立包 <code>rill-runtime-preview</code>，与 Stable 的
-<code>rill-runtime</code> 互斥（<code>CONFLICTS:=rill-runtime</code>，APK 元数据中
-表现为 <code>!rill-runtime&gt;=0</code>）。它由 <code>package/rill-runtime-preview/Makefile</code>
-定义，使用同一套 Rust 1.96.0 qualification toolchain。
+历史版本曾单独发布 <code>rill-runtime-preview</code>，并与 <code>rill-runtime</code>
+共享二进制路径，因此两者互斥。当前已取消 Preview 包发布，唯一新包名是
+<code>rill-runtime</code>。设备上若仍安装旧 Preview 包，manager 会显示 `legacy-runtime-migration-required` 并拒绝
+自动替换；先显式卸载旧包，再安装 Stable。包管理器不会同时安装两个都声明拥有
+<code>/usr/bin/rill-runtime</code> 的包。
 
-Preview 包同时进入两条发布通道：独立的签名 preview feed，以及 Release 资产。
-Release tag 由 Stable 包的 release 号决定，因此 preview 包可能挂在 Stable 的
-tag 下（例如 <code>v1.5.6-r4</code>），其自身版本仍为 <code>1.5.6-r6</code>。
-
-**签名 Preview feed（推荐）**：<code>qualify.yml</code> 为每个 target 生成 preview
-索引并上传 <code>rill-preview-feed-*</code> artifact；<code>feed.yml</code> 在
-production 签名密钥可用时对其签名，发布到独立的 <code>preview/</code> 通道。
-该通道不会写入生产 <code>feed/</code>：
-
-    https://hello-yunshu.github.io/rill-openwrt-packages/preview/<openwrt-version>/<target>/<subtarget>/<package-arch>/
-
-例如 OpenWrt 25.12.5 / x86_64：
-
-    echo 'https://hello-yunshu.github.io/rill-openwrt-packages/preview/25.12.5/x86/64/x86_64/packages.adb' > /etc/apk/repositories.d/rill-preview.list
-    wget -O /etc/apk/keys/rill-openwrt-feed-apk.pub https://hello-yunshu.github.io/rill-openwrt-packages/keys/rill-openwrt-feed-apk.pub
-    apk update
-    apk add rill-runtime-preview
-
-首次使用需要安装 feed 公钥（与 Stable feed 相同）；信任来自签名索引
-（<code>Packages.sig</code> / <code>packages.adb</code>），而不是单个包文件，
-因此不需要 <code>--allow-untrusted</code>。<code>preview/manifest.json</code> 的
-<code>channel</code> 为 <code>preview</code>，<code>productionFeedEligible</code>
-恒为 <code>false</code>。
-
-**Release 资产（一次性）**：Release 资产是 qualification 构建产物，没有 feed
-索引签名，<code>apk verify</code> 会报 <code>UNTRUSTED signature</code>；安装时
-必须显式接受这一前提：
-
-    curl -fLO https://github.com/hello-yunshu/rill-openwrt-packages/releases/download/v1.5.6-r4/rill-runtime-preview-v25.12.5-x86_64.apk
-    sha256sum rill-runtime-preview-v25.12.5-x86_64.apk
-    # 544b113af904dfbe89fc5662b690d78a91828fecb5e130c37869f53ca9a8e10e
-    apk add --allow-untrusted ./rill-runtime-preview-v25.12.5-x86_64.apk
-
-这只适合一次性验证，不应作为长期软件源。
-
-**消费方示例。** Preview feed 是通用出口，不绑定任何单一宿主产品：
-
-- <b>Cloudflare IP</b>：<code>luci-app-cloudflare-ip</code> 的可选 rill 子包声明
-  <code>+rill-runtime-preview</code>，加源后直接
-  <code>apk add rill-runtime-preview</code> 即可满足依赖。该子包的 LuCI 集成默认
-  关闭：<code>/etc/config/cf_ip</code> 没有 <code>rill</code> 段（<code>mode=off</code>），
-  ubus 的 <code>rill-diagnostics</code> 会返回 <code>disabled</code>；这是配置
-  开关，不是缺包，需要在 LuCI 界面手动打开。
-- <b>Performance Manager</b>：<code>performance-manager-rill</code> 的 Makefile
-  声明 <code>DEPENDS:=+performance-manager +rill-runtime</code>，通过包依赖消费
-  通用 Stable Runtime；all-in-one 包只内置从 qualified Runtime APK 提取的 exact
-  <code>/usr/bin/rill-runtime</code>。它消费 Preview 的方式是先用 preview feed
-  验证下一个 Runtime（安装 <code>rill-runtime-preview</code>，注意与
-  <code>rill-runtime</code> 互斥），确认后再等待其进入 Stable；不要为了 Preview
-  改写该包的 <code>+rill-runtime</code> 依赖语义。
-
-回退：
-
-    apk del rill-runtime-preview
+Runtime 与 PM/CFI 消费包继续从已配置并验证的 Yun 统一 feed 安装或更新。
 
 ## 版本与来源完整性
 
 版本真相位于：
 
-- <code>package/rill-runtime/Makefile</code>：包版本、release、上游 archive hash；
-- <code>metadata/rill-runtime.json</code>：上游 tag、commit、archive SHA-256 和包身份；
+- <code>package/rill-runtime/Makefile</code>：包版本、release、固定上游 Git commit；
+- <code>metadata/rill-runtime.json</code>：上游 immutable commit、来源类型和包身份；
 - <code>scripts/check_upstream_version.py</code>：检查本仓库是否跟随已发布 Stable；
-- <code>scripts/update_rill_version.py</code>：根据已发布 Stable 更新包版本和来源 hash。
+- <code>scripts/update_rill_version.py</code>：用于历史 tag 版本同步（当前 stable-main pin 由人工审阅更新）。
 
 本仓库不把动态 qualification 状态写进长期 metadata。qualification 状态属于
 具体的 GitHub Actions run 和 artifact，避免“旧 metadata 看起来仍然通过”。
 
-本地检查当前版本是否与上游 Stable 一致：
+本地检查当前 pin 是否仍为上游 main：
 
     python3 scripts/check_upstream_version.py --json
 
-版本同步工作流支持定时运行、<code>repository_dispatch</code> 和手动触发。发现新 Stable
-版本时，它会生成只修改包版本与来源元数据的自动 PR；同一 Stable SemVer 如果 tag
-commit 或 archive hash 发生变化，检查和更新脚本会以 <code>MUTATED_STABLE</code>
-失败，禁止静默改写来源身份。
+来源检查会将 metadata 中固定的 commit 与当前 upstream main 对比。上游 main 前进时，
+需要审阅精确 commit、包修订号和 qualification 后再更新 pin。
 
 架构能力与证据分层记录在 <code>metadata/architecture-capability.json</code>：package
-保留 OpenWrt/Rust helper 的 all-arch build capability，当前 Actions 矩阵只是已验证
-targets，设备运行证据仍单独记录。下游可使用 <code>scripts/verify_qualification.py</code> 校验 schema v1/v2 evidence，按
-package commit、upstream identity、target identity、qualification state 和 release
-eligibility 验证，不依赖固定 artifact 数量。
+保留 OpenWrt/Rust helper 的构建能力；<code>metadata/openwrt-targets.json</code> 中的
+12 个 release/architecture 组合是自动资格矩阵，不代表单凭列入 registry 就已有可发布
+包。Release 资格要求唯一 Stable 包的每一项实际 SDK 包构建、ELF/ABI、元数据和
+来源证据全部通过；设备运行资格仍单独记录。下游应使用
+<code>scripts/verify_qualification.py</code> 校验 schema v4 的单 Stable 逐目标证据、实际包
+字节和 release eligibility。
 
 ## Qualification 做什么
 
 <code>.github/workflows/qualify.yml</code> 会：
 
-1. 校验上游最新公开 Stable tag；
-2. 使用官方 OpenWrt SDK 构建 IPK 和 APK；
+1. 校验 metadata 固定的 upstream main commit；
+2. 按 registry 为 OpenWrt 24.10.8 与 25.12.6 的每个 target 下载对应官方 SDK；24.10
+   构建 IPK，25.12 构建 APK；
 3. 通过显式、可缓存且版本固定的 qualification toolchain contract（包括
    rustup-init SHA-256）准备 Rust host 工具链，不改变默认 Runtime feature；
 4. 保留 OpenWrt <code>rust-package.mk</code> 的交叉编译、链接器和 staging 规则；
-5. 检查包元数据、架构、版本和最终 payload；
+5. 检查包元数据、ELF class/machine/ABI、musl interpreter、版本和最终 payload；
 6. 确认 payload 包含 <code>/usr/bin/rill-runtime</code>，且不包含 <code>rill-pack</code>；
-7. 上传带包 SHA-256、上游 commit、来源 archive hash 和 run ID 的证据；成功的
+7. 上传带包 SHA-256、上游 commit 和 run ID 的证据；成功的
    qualification run 随后由独立 promotion workflow 原样提升为 package Release。
 
 工作流会按 OpenWrt SDK 分支缓存可复用的下载内容、Cargo/Rust 输入以及安全范围内的
@@ -206,7 +154,7 @@ Rust target 编译结果，并通过 OpenWrt jobserver 以 <code>-j4</code> 运�
 1. 固定 <code>rill-openwrt-packages</code> 的完整 commit SHA；
 2. 检查该 commit 的 OpenWrt qualification workflow 为 <code>completed/success</code>；
 3. 下载同一 run 的 <code>qualification-evidence</code>；
-4. 校验 artifact 中的包 SHA-256、版本、release、上游 commit 和 archive hash；
+4. 校验 artifact 中的包 SHA-256、版本、release 和上游 commit；
 5. 再将包放入下游 SDK、镜像或设备发布流程。
 
 包本身只提供通用 Runtime。宿主产品仍需自行验证其 RPC/LuCI/服务生命周期、
@@ -214,7 +162,8 @@ Rust target 编译结果，并通过 OpenWrt jobserver 以 <code>-j4</code> 运�
 
 ## OpenWrt feed
 
-同一批已通过 qualification 的包也会按目录发布为独立 feed：
+兼容期内，<code>feed.yml</code> 仍将同一批已通过 qualification 的包发布到 Rill
+旧 feed。这个 feed 不再是新安装的推荐入口：
 
     https://hello-yunshu.github.io/rill-openwrt-packages/feed/<openwrt-version>/<target>/<subtarget>/<package-arch>/
 
@@ -225,22 +174,22 @@ Feed 采用 OpenWrt 原生签名格式：24.10 的 `Packages.sig` 使用 `usign`
 已启用；当前 trust-root fingerprint 位于 `keys/README.md`，unsigned 或
 development output 永远不会被提升为 production feed。
 
-生产使用时先人工核对 Pages 根目录 `keys/` 下对应公钥的 fingerprint，再配置：
+**新安装使用 Yun 统一源**，不再添加 Rill 专属 source：
 
     # OpenWrt 24.10 / IPK
-    echo 'src/gz rill https://hello-yunshu.github.io/rill-openwrt-packages/feed/24.10.8/x86/64/x86_64/' >> /etc/opkg/customfeeds.conf
+    echo 'src/gz yun-openwrt https://hello-yunshu.github.io/yun-openwrt-packages/24.10.8/x86_64/' >> /etc/opkg/customfeeds.conf
     opkg update
     opkg install rill-runtime
 
     # OpenWrt 25.12 / APK
-    echo 'https://hello-yunshu.github.io/rill-openwrt-packages/feed/25.12.5/x86/64/x86_64/packages.adb' > /etc/apk/repositories.d/rill.list
+    echo 'https://hello-yunshu.github.io/yun-openwrt-packages/25.12.6/x86_64/packages.adb' > /etc/apk/repositories.d/yun-openwrt.list
     apk update
     apk add rill-runtime
 
-24.10 的公钥放入 `/etc/opkg/keys/`，25.12 的公钥放入 `/etc/apk/keys/`；缺 key、错误
-key、篡改 index 或篡改 package 都必须失败。完整 feed provenance 位于 Pages 的
-`manifest.json`、`qualification.json` 和 `SHA256SUMS`，并绑定同一个 qualification
-run、包 commit、上游 Stable 和 Release identity。
+按 Yun feed 的信任引导说明安装并核验公钥：24.10 的 usign key 以 key ID 命名，位于
+`/etc/opkg/keys/e58db45ab792599d`，25.12 的 APK key 位于
+`/etc/apk/keys/yun-feed.rsa.pub`。Runtime manager 不会自动下载公钥、添加源或绕过签名校验。
+旧 Rill Pages 保留独立签名和 provenance，仅供迁移中的既有配置使用。
 
 Feed 由同一 qualification run 的包构建，部署前执行目录、索引和哈希校验；
 只包含 `metadata/openwrt-targets.json` 中当前启用且已验证的 target，不构成对
