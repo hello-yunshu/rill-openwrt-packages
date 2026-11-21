@@ -138,12 +138,12 @@ def verify(
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             return [f"invalid feed manifest: {exc}"]
-        if manifest.get("schemaVersion") not in (2, 3):
-            errors.append("feed manifest schemaVersion must be 2 or 3")
-        if manifest.get("schemaVersion") == 3:
+        if manifest.get("schemaVersion") not in (2, 3, 4):
+            errors.append("feed manifest schemaVersion must be 2, 3 or 4")
+        if manifest.get("schemaVersion") in (3, 4):
             attempt=manifest.get("qualificationRunAttempt")
             if type(attempt) is not int or attempt<=0 or manifest.get("qualificationState")!="automated-qualification":
-                errors.append("schema 3 feed requires exact qualification attempt and completed qualification")
+                errors.append("qualified feed requires exact qualification attempt and completed qualification")
         if manifest.get("package") != package_name:
             errors.append(f"feed manifest package must be {package_name}")
         if not re.fullmatch(r"[0-9a-f]{40}", str(manifest.get("packageCommit", ""))):

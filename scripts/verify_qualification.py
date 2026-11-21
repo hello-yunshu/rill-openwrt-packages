@@ -15,7 +15,7 @@ SHA1 = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def verify_v3(data: dict, args: argparse.Namespace) -> list[str]:
-    """Both channels must cover the exact registry, with binary and build identity."""
+    """The single Stable package must cover the exact target registry."""
     try:
         from .openwrt_targets import entries
     except ImportError:
@@ -33,13 +33,12 @@ def verify_v3(data: dict, args: argparse.Namespace) -> list[str]:
     identity_keys = ("openwrtVersion", "target", "subtarget", "packageArch", "rustTarget", "pkgtype")
     registry = {tuple(str(item[key]) for key in identity_keys): item for item in entries()}
     artifacts = set()
-    for channel in ("stable", "preview"):
-        preview = data.get("previewPackage", {})
-        package = data.get("package", {}) if channel == "stable" else preview
-        upstream = data.get("upstream", {}) if channel == "stable" else preview.get("upstream", {})
-        build = data.get("build", {}) if channel == "stable" else preview.get("build", {})
-        rows = data.get("targets") if channel == "stable" else preview.get("targets")
-        expected_name = "rill-runtime" if channel == "stable" else "rill-runtime-preview"
+    for channel in ("stable",):
+        package = data.get("package", {})
+        upstream = data.get("upstream", {})
+        build = data.get("build", {})
+        rows = data.get("targets")
+        expected_name = "rill-runtime"
         if package.get("name") != expected_name or package.get("recipe") != f"package/{expected_name}/Makefile":
             errors.append(f"{channel}: incorrect package owner/recipe")
         if package.get("binary") != "/usr/bin/rill-runtime":
@@ -48,14 +47,10 @@ def verify_v3(data: dict, args: argparse.Namespace) -> list[str]:
             errors.append(f"{channel}: invalid package version/release")
         if upstream.get("repository") != "hello-yunshu/rill-ml" or upstream.get("version") != package.get("version"):
             errors.append(f"{channel}: source repository/version mismatch")
-        if channel == "stable" and upstream.get("tag") != "v" + str(package.get("version")):
-            errors.append("stable: source tag/version mismatch")
-        if channel == "preview" and (package.get("channel") != "preview-exact-commit" or upstream.get("tag") != "preview-exact-commit"):
-            errors.append("preview: channel semantics mismatch")
+        if upstream.get("sourceType") != "immutable-git-commit" or upstream.get("tag") != "stable-main-1e962a8":
+            errors.append("stable: immutable upstream source identity mismatch")
         if not SHA1.fullmatch(str(upstream.get("commit", ""))):
             errors.append(f"{channel}: invalid source commit")
-        if channel == "stable" and not SHA256.fullmatch(str(upstream.get("archiveSha256", ""))):
-            errors.append("stable: missing source archive hash")
         if not SHA256.fullmatch(str(build.get("sourceLockSha256", ""))):
             errors.append(f"{channel}: missing source lock digest")
         if not re.fullmatch(r"\d+\.\d+\.\d+", str(build.get("rustToolchain", ""))):
@@ -94,8 +89,11 @@ def verify_v3(data: dict, args: argparse.Namespace) -> list[str]:
             if row.get("qualificationState") != "PASS" or row.get("binary") != "/usr/bin/rill-runtime":
                 errors.append(f"{channel}: target not qualified")
             target = registry.get(identity, {})
-            if row.get("elfClass") != "ELF64" or row.get("endianness") != "little" or row.get("elfMachine") != target.get("elfMachine"):
+            expected_elf_class = target.get("elfClass", "ELF64")
+            if row.get("elfClass") != expected_elf_class or row.get("endianness") != "little" or row.get("elfMachine") != target.get("elfMachine"):
                 errors.append(f"{channel}: ELF identity mismatch")
+            if target.get("elfABI") and row.get("elfABI") != target.get("elfABI"):
+                errors.append(f"{channel}: ELF ABI identity mismatch")
             sdk = row.get("sdk", {})
             if sdk.get("openwrtVersion") != row.get("openwrtVersion") or any(not SHA256.fullmatch(str(sdk.get(key, ""))) for key in ("archiveSha256", "configurationLogSha256")):
                 errors.append(f"{channel}: SDK archive/configuration identity missing")
@@ -122,30 +120,31 @@ def verify_v3(data: dict, args: argparse.Namespace) -> list[str]:
                     path = Path(artifact_dir) / artifact
                     inspected = inspect(path, expected_name, str(row.get("packageArch", "")),
                         f"{package.get('version')}-r{package.get('release')}", getattr(args, "apk", "apk"))
-                    for field in ("sha256", "binarySha256", "elfClass", "endianness", "elfMachine", "interpreter", "packageMetadata"):
-                        if inspected[field] != row.get(field):
+                    for field in ("sha256", "binarySha256", "elfClass", "endianness", "elfMachine", "elfABI", "interpreter", "packageMetadata"):
+                        if inspected.get(field) != row.get(field):
                             errors.append(f"{channel}: actual artifact {field} differs from evidence")
                 except (OSError, ValueError, KeyError) as error:
                     errors.append(f"{channel}: actual artifact inspection failed: {error}")
-            expected_loader = "/lib/ld-musl-" + ("x86_64" if row.get("packageArch") == "x86_64" else "aarch64") + ".so.1"
-            if "interpreter" not in row or row["interpreter"] not in (None, expected_loader):
+            expected_loader = target.get("elfInterpreter") or ("/lib/ld-musl-x86_64.so.1" if row.get("packageArch") == "x86_64" else "/lib/ld-musl-aarch64.so.1")
+            if row.get("interpreter") != expected_loader:
                 errors.append(f"{channel}: ELF loader identity mismatch")
             actual = row.get("packageMetadata", {})
             expected_version = f"{package.get('version')}-r{package.get('release')}"
-            if actual.get("name") != expected_name or actual.get("architecture") != row.get("packageArch") or actual.get("version") != expected_version:
+            expected_conflicts = ["rill-runtime-preview"]
+            if actual.get("name") != expected_name or actual.get("architecture") != row.get("packageArch") or actual.get("version") != expected_version or actual.get("conflicts") != expected_conflicts:
                 errors.append(f"{channel}: actual package metadata mismatch")
         if seen != set(registry):
             errors.append(f"{channel}: target set differs from registry")
-    selected = data.get("previewPackage", {}) if getattr(args, "channel", "stable") == "preview" else data.get("package", {})
+    selected = data.get("package", {})
     for key, expected in (("version", args.version), ("release", args.release)):
         if expected and str(selected.get(key)) != str(expected):
             errors.append(f"selected channel {key} mismatch")
-    selected_upstream = data.get("previewPackage", {}).get("upstream", {}) if getattr(args, "channel", "stable") == "preview" else data.get("upstream", {})
+    selected_upstream = data.get("upstream", {})
     for key, expected in (("repository", args.upstream_repository), ("tag", args.upstream_tag), ("commit", args.upstream_commit)):
         if expected and selected_upstream.get(key) != expected:
             errors.append(f"selected upstream.{key} mismatch")
     if args.openwrt_version or args.package_arch or args.pkgtype:
-        rows = data.get("previewPackage", {}).get("targets", []) if getattr(args, "channel", "stable") == "preview" else data.get("targets", [])
+        rows = data.get("targets", [])
         if not any((not args.openwrt_version or row.get("openwrtVersion") == args.openwrt_version) and (not args.package_arch or row.get("packageArch") == args.package_arch) and (not args.pkgtype or row.get("pkgtype") == args.pkgtype) for row in rows):
             errors.append("no target matches requested identity")
     return errors
@@ -154,7 +153,9 @@ def verify_v3(data: dict, args: argparse.Namespace) -> list[str]:
 def verify(data: dict, args: argparse.Namespace) -> list[str]:
     errors: list[str] = []
     schema = data.get("schemaVersion")
-    if schema == 3:
+    if getattr(args, "channel", "stable") != "stable":
+        return ["only the canonical Stable Runtime channel is supported"]
+    if schema in (3, 4):
         return verify_v3(data, args)
     if getattr(args, "channel", "stable") == "preview":
         return ["Preview requires schemaVersion 3 with per-target binary identity"]
@@ -252,7 +253,7 @@ def main() -> int:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
-    print("PASS" if data.get("schemaVersion")==3 else "PASS historical Stable structure only; not new promotion/Preview qualification")
+    print("PASS" if data.get("schemaVersion")==4 else "PASS historical Stable structure only; not new promotion/Preview qualification")
     return 0
 
 

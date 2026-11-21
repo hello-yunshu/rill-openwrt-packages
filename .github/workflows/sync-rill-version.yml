@@ -1,26 +1,18 @@
-name: Check Rill Stable package drift
+name: Check pinned Rill upstream source
 
 on:
-  schedule:
-    - cron: '0 */6 * * *'
-  repository_dispatch:
-    types: [rill-stable-release]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: rill-stable-sync
-  cancel-in-progress: false
+  group: rill-source-pin-check
+  cancel-in-progress: true
 
 jobs:
   update-stable:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -31,15 +23,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/update_rill_version.py --json > "$RUNNER_TEMP/update.json"
-          cat > "$RUNNER_TEMP/body.md" <<'EOF'
-          Updates only the canonical package recipe and preserved upstream metadata.
-          OpenWrt qualification must pass for this exact source before merge.
-          The required exact-commit qualification is explicitly dispatched; a PR alone is not a PASS.
-          EOF
-          python3 scripts/open_sync_pr.py --base main --prefix automation/rill-stable \
-            --title "build: sync qualified Rill Stable package source" --qualification-workflow qualify.yml \
-            --body-file "$RUNNER_TEMP/body.md" \
-            package/rill-runtime/Makefile metadata/rill-runtime.json
+          python3 scripts/check_upstream_version.py --json
         env:
           GH_TOKEN: ${{ github.token }}

@@ -14,7 +14,7 @@ def write_release_fixture(root: Path, *, run_id: str = "old-run", package_commit
     candidate.mkdir()
     packages = {
         "rill-runtime-v24.10.8-x86_64.ipk": b"ipk-bytes",
-        "rill-runtime-v25.12.5-x86_64.apk": b"apk-bytes",
+        "rill-runtime-v25.12.6-x86_64.apk": b"apk-bytes",
     }
     for name, data in packages.items():
         (existing / name).write_bytes(data)
@@ -27,7 +27,7 @@ def write_release_fixture(root: Path, *, run_id: str = "old-run", package_commit
         "upstream": {"repository": "hello-yunshu/rill-ml", "tag": "v1.5.6", "commit": "b" * 40, "archiveSha256": "c" * 64},
         "targets": [
             {"artifact": "rill-runtime-v24.10.8-x86_64.ipk", "sha256": "ignored-by-candidate-fixture", "openwrtVersion": "24.10.8", "target": "x86", "subtarget": "64", "packageArch": "x86_64", "rustTarget": "x86_64-unknown-linux-musl", "pkgtype": "ipk", "binary": "/usr/bin/rill-runtime", "elfClass": "ELF64", "endianness": "little", "elfMachine": "Advanced Micro Devices X86-64"},
-            {"artifact": "rill-runtime-v25.12.5-x86_64.apk", "sha256": "ignored-by-candidate-fixture", "openwrtVersion": "25.12.5", "target": "x86", "subtarget": "64", "packageArch": "x86_64", "rustTarget": "x86_64-unknown-linux-musl", "pkgtype": "apk", "binary": "/usr/bin/rill-runtime", "elfClass": "ELF64", "endianness": "little", "elfMachine": "Advanced Micro Devices X86-64"},
+            {"artifact": "rill-runtime-v25.12.6-x86_64.apk", "sha256": "ignored-by-candidate-fixture", "openwrtVersion": "25.12.6", "target": "x86", "subtarget": "64", "packageArch": "x86_64", "rustTarget": "x86_64-unknown-linux-musl", "pkgtype": "apk", "binary": "/usr/bin/rill-runtime", "elfClass": "ELF64", "endianness": "little", "elfMachine": "Advanced Micro Devices X86-64"},
         ],
     }
     existing_evidence = existing / "qualification.json"
@@ -69,7 +69,7 @@ class ReleaseIdentityTests(unittest.TestCase):
     def test_missing_or_extra_asset_fails(self):
         with tempfile.TemporaryDirectory() as temporary:
             existing, candidate, evidence = write_release_fixture(Path(temporary))
-            (candidate / "rill-runtime-v25.12.5-x86_64.apk").unlink()
+            (candidate / "rill-runtime-v25.12.6-x86_64.apk").unlink()
             with self.assertRaisesRegex(IdentityMismatch, "asset names"):
                 compare_existing_release(existing, evidence, candidate)
 

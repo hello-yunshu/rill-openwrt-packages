@@ -16,7 +16,7 @@ class SdkIdentityTests(unittest.TestCase):
         line = f"{self.digest} *{self.filename}\n"
         for text in ("", line + line, line.replace(self.digest, "bad"),
                      line.replace("*openwrt", "*../openwrt"),
-                     line.replace("24.10.8", "25.12.5"),
+                     line.replace("24.10.8", "25.12.6"),
                      line.replace("x86-64_", "armsr-armv8_")):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 resolve(text, "24.10.8", "x86-64")

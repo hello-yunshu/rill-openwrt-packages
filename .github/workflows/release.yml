@@ -61,9 +61,6 @@ jobs:
         with:
           github-token: ${{ github.token }}
           run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}
-          pattern: rill-runtime-preview-*-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.qualification_run_id }}-${{ github.event_name == 'workflow_run' && github.event.workflow_run.run_attempt || inputs.qualification_run_attempt }}
-          path: release-assets
-          merge-multiple: true
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           github-token: ${{ github.token }}
@@ -92,16 +89,16 @@ jobs:
           jq -e --arg sha "$HEAD_SHA" --argjson attempt "$RUN_ATTEMPT" \
             '.head_sha==$sha and .run_attempt==$attempt and .status=="completed" and .conclusion=="success" and .path==".github/workflows/qualify.yml"' <<<"$actual_run"
           jq -e --arg sha "$HEAD_SHA" --argjson run "$RUN_ID" --argjson attempt "$RUN_ATTEMPT" \
-            '.schemaVersion==3 and .packageCommit==$sha and .runId==$run and .runAttempt==$attempt' "$evidence"
-          python3 scripts/verify_qualification.py "$evidence" --channel preview \
+            '.schemaVersion==4 and .packageCommit==$sha and .runId==$run and .runAttempt==$attempt' "$evidence"
+          python3 scripts/verify_qualification.py "$evidence" --channel stable \
             --package-commit "$HEAD_SHA" --artifacts-dir release-assets --apk "$PWD/tools/bin/apk"
           version=$(jq -r '.package.version' "$evidence")
           release=$(jq -r '.package.release' "$evidence")
           tag="v${version}-r${release}"
-          test "$(jq -r '.upstream.tag' metadata/rill-runtime.json)" = "v${version}"
+          test "$(jq -r '.upstream.tag' metadata/rill-runtime.json)" = "stable-main-1e962a8"
           test "$(jq -r '.upstream.commit' metadata/rill-runtime.json)" = "$(jq -r '.upstream.commit' "$evidence")"
           mapfile -t assets < <(find release-assets -maxdepth 2 -type f \( -name '*.ipk' -o -name '*.apk' \) -print | sort)
-          target_count=$(jq '(.targets|length)+(.previewPackage.targets|length)' "$evidence")
+          target_count=$(jq '.targets|length' "$evidence")
           test "${#assets[@]}" -eq "$target_count"
           for asset in "${assets[@]}"; do
             test -s "$asset"

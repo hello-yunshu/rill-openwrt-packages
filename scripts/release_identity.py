@@ -27,6 +27,7 @@ IDENTITY_TARGET_FIELDS = (
     "elfClass",
     "endianness",
     "elfMachine",
+    "elfABI",
     "binarySha256",
     "packageMetadata",
     "interpreter",
@@ -93,11 +94,13 @@ def semantic_identity(evidence: dict[str, Any]) -> dict[str, Any]:
             "repository": upstream.get("repository"),
             "tag": upstream.get("tag"),
             "commit": upstream.get("commit"),
-            "archiveSha256": upstream.get("archiveSha256"),
+            "sourceType": upstream.get("sourceType"),
         },
         "targets": sorted((_target_identity(target) for target in targets), key=lambda item: str(item["artifact"])),
     }
-    if evidence.get("schemaVersion") == 3:
+    if evidence.get("schemaVersion") == 4:
+        identity["build"] = evidence.get("build")
+    elif evidence.get("schemaVersion") == 3:
         preview = evidence.get("previewPackage")
         if not isinstance(preview, dict) or not isinstance(preview.get("targets"), list):
             raise IdentityMismatch("schema 3 is missing Preview binary identity")
