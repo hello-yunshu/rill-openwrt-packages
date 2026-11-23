@@ -12,7 +12,8 @@ case "$RPCD" in
 	"refresh": {},
 	"install": { "package": "package" },
 	"repair": { "package": "package" },
-	"update": { "package": "package" }
+	"update": { "package": "package" },
+	"uninstall": { "package": "package" }
 }
 EOF
 		;;
@@ -21,7 +22,7 @@ EOF
 			status|refresh)
 				exec "$BACKEND" "$METHOD"
 				;;
-			install|repair|update)
+			install|repair|update|uninstall)
 				input="$(cat)"
 				package="$(printf '%s' "$input" | jsonfilter -e '@.package' 2>/dev/null || true)"
 				exec "$BACKEND" "$METHOD" "$package"

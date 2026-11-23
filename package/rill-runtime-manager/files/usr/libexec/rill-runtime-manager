@@ -467,7 +467,9 @@ do_package_action() {
 		*) emit false false "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false package-not-allowed 'This package is not in the management allowlist.' false; return 1 ;;
 	esac
 	read_platform
-	case "$_action" in install|update) ;; *) emit false false "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false "$(runtime_channel)" '' false false false package-action-not-supported 'Only install and update are supported for the canonical Stable package.' false; return 1 ;; esac
+	case "$_action" in install|update) ;; uninstall)
+		[ "$_package" = "$RILL_RUNTIME_PACKAGE" ] || { emit false false "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false package-action-not-supported 'Only the shared Runtime package can be uninstalled.' false; return 1; }
+		;; *) emit false false "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false "$(runtime_channel)" '' false false false package-action-not-supported 'Only install, update, and uninstall are supported.' false; return 1 ;; esac
 	if [ -z "$RILL_PKGTYPE" ] || { [ "$RILL_PKGTYPE" = apk ] && ! command -v apk >/dev/null 2>&1; } || { [ "$RILL_PKGTYPE" = ipk ] && ! command -v opkg >/dev/null 2>&1; }; then
 		emit false false "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false unsupported-release 'The selected OpenWrt release or package manager is unsupported.' false
 		return 1
@@ -475,6 +477,28 @@ do_package_action() {
 	if ! runtime_arch_supported; then
 		emit false false "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false runtime-unsupported-architecture 'Stable Runtime is not qualified for this architecture.' false
 		return 1
+	fi
+	if [ "$_action" = uninstall ]; then
+		lock_acquire || { emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(runtime_installed && echo true || echo false)" "$(runtime_channel)" '' false false true package-manager-busy 'Another Runtime package operation is running.' true; return 1; }
+		trap lock_release EXIT HUP INT TERM
+		_ui_removed=false
+		for _ui_pkg in "$RILL_RUNTIME_PACKAGE" "$RILL_LEGACY_PREVIEW_PACKAGE"; do
+			if package_installed "$_ui_pkg"; then
+				case "$RILL_PKGTYPE" in
+					apk) apk del "$_ui_pkg" >/dev/null 2>&1 ;;
+					ipk) opkg remove "$_ui_pkg" >/dev/null 2>&1 ;;
+				esac
+				[ $? -eq 0 ] && _ui_removed=true
+			fi
+		done
+		trap - EXIT HUP INT TERM; lock_release
+		if [ "$_ui_removed" = true ]; then
+			emit true "$(runtime_arch_supported && echo true || echo false)" "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" false none '' false false false '' 'Runtime package removed.' true
+		else
+			emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(runtime_installed && echo true || echo false)" "$(runtime_channel)" '' false false false package-manager-failed 'The package manager rejected the removal; check its logs.' true
+			return 1
+		fi
+		return 0
 	fi
 	if legacy_feed_configured; then
 		emit false true "$RILL_RELEASE" "$RILL_ARCH" "$RILL_PKGTYPE" "$(runtime_installed && echo true || echo false)" "$(runtime_channel)" "$(package_version "$RILL_LEGACY_PREVIEW_PACKAGE")" false false false legacy-feed-configured 'A legacy Rill feed is configured. Remove its source before managing packages through the unified Yun feed.' false
@@ -558,6 +582,6 @@ do_package_action() {
 case "${1:-}" in
 	status) read_platform; status ;;
 	refresh) do_refresh ;;
-	install|repair|update) do_package_action "$1" "${2:-}" ;;
+	install|repair|update|uninstall) do_package_action "$1" "${2:-}" ;;
 	*) exit 2 ;;
 esac
