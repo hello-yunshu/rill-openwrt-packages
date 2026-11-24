@@ -22,7 +22,7 @@
 | 上游来源 | RillML upstream main 的 immutable commit |
 | 当前来源版本 | <code>1.5.6</code> |
 | 当前上游 commit | <code>1e962a82443088229714877eee98617f1596eee8</code> |
-| 当前包版本 | <code>1.5.6-r8</code> |
+| 当前包版本 | <code>1.5.6-r9</code> |
 | 包许可证 | MIT |
 | 包维护者 | Rill OpenWrt Packages maintainers |
 | 分发 Release | [rill-runtime releases](https://github.com/hello-yunshu/rill-openwrt-packages/releases) |
