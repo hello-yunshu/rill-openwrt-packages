@@ -133,7 +133,16 @@ package_version() {
 	_pv_package="$1"
 	case "$RILL_PKGTYPE" in
 		apk)
-			apk info -v "$_pv_package" 2>/dev/null | sed -n "1{s/^${_pv_package}-//;p;}"
+			# apk 3.x prints the package description for `apk info -v`, so the
+			# first line is prose ("<name>: <description>") instead of
+			# "<name>-<version>". The installed record from `apk list -I` always
+			# starts with "<name>-<version>"; fall back to `apk info` for apk-tools
+			# builds that do not ship `list -I`.
+			_pv_version="$(apk list -I "$_pv_package" 2>/dev/null | awk -v name="$_pv_package" '$1 ~ ("^" name "-[0-9]") { sub("^" name "-", "", $1); print $1; exit }')"
+			if [ -z "$_pv_version" ]; then
+				_pv_version="$(apk info "$_pv_package" 2>/dev/null | sed -n "1{s/ .*//;s/^${_pv_package}-//;p;}")"
+			fi
+			printf '%s\n' "$_pv_version"
 			;;
 		ipk)
 			opkg list-installed "$_pv_package" 2>/dev/null | awk -v name="$_pv_package" '$1 == name { print $3; exit }'
