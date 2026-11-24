@@ -104,22 +104,22 @@ class RuntimeManagerPackageTests(unittest.TestCase):
                     "      case \" ${TEST_INSTALLED_PACKAGE:-} \" in *\" $3 \"*) exit 0;; esac\n"
                     "      case \" ${TEST_INSTALLED_PACKAGES:-} \" in *\" $3 \"*) exit 0;; esac\n"
                     "      exit 1\n"
-                    "    elif [ \"$2\" = -v ]; then\n"
-                    "      printf '%s: Test package description.\\n' \"$3\"\n"
-                    "      printf '%s: https://example.invalid/%s\\n' \"$3\" \"$3\"\n"
-                    "      exit 0\n"
-                    "    fi;;\n"
+                    # apk 3.x prints the package description for `info -v`; the
+                    # installed record from `list -I` carries <name>-<version>.
+                    "    elif [ \"$2\" = -v ]; then printf '%s: Generic test package description.\\n' \"$3\"; exit 0\n"
+                    "    elif [ \"$2\" = -p ]; then exit 0\n"
+                    "    else printf '%s-%s description:\\n' \"$2\" \"${TEST_CURRENT_VERSION:-1.5.6-r7}\"; exit 0; fi;;\n"
                     "  list)\n"
-                    "    if [ \"$2\" = -u ]; then\n"
-                    "      for p in ${TEST_UPDATE_PACKAGES:-}; do\n"
-                    "        if [ -z \"${3:-}\" ] || [ \"$p\" = \"$3\" ]; then\n"
-                    "          printf '%s-2.0.0-r0 x86_64 {test} (MIT) [upgradable from: %s-1.0.0-r0]\\n' \"$p\" \"$p\"\n"
-                    "        fi\n"
-                    "      done\n"
-                    "    elif [ \"$2\" = -I ]; then\n"
+                    "    if [ \"$2\" = -I ]; then\n"
                     "      for p in ${TEST_INSTALLED_PACKAGE:-} ${TEST_INSTALLED_PACKAGES:-}; do\n"
                     "        if [ -z \"${3:-}\" ] || [ \"$p\" = \"$3\" ]; then\n"
                     "          printf '%s-%s x86_64 {test} (MIT) [installed]\\n' \"$p\" \"${TEST_CURRENT_VERSION:-1.5.6-r7}\"\n"
+                    "        fi\n"
+                    "      done\n"
+                    "    elif [ \"$2\" = -u ]; then\n"
+                    "      for p in ${TEST_UPDATE_PACKAGES:-}; do\n"
+                    "        if [ -z \"${3:-}\" ] || [ \"$p\" = \"$3\" ]; then\n"
+                    "          printf '%s-2.0.0-r0 x86_64 {test} (MIT) [upgradable from: %s-1.0.0-r0]\\n' \"$p\" \"$p\"\n"
                     "        fi\n"
                     "      done\n"
                     "    elif [ \"$2\" = -a ] && [ -n \"${TEST_CANDIDATE_VERSION:-}\" ]; then\n"
@@ -305,6 +305,19 @@ class RuntimeManagerPackageTests(unittest.TestCase):
         self.assertTrue(payload["feedReady"])
         self.assertTrue(payload["cfiUpdateAvailable"])
         self.assertFalse(payload["pmUpdateAvailable"])
+
+    def test_apk3_version_is_read_from_the_installed_record(self):
+        """apk 3.x prints the package description for `apk info -v`, so the
+        Runtime version must come from the installed `list -I` record."""
+        result, payload, _ = self.invoke(
+            "status",
+            release="25.12.6",
+            installed_packages="rill-runtime",
+            runtime_binary_exists=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(payload["version"], "1.5.6-r7")
+        self.assertNotIn("Generic test package description", payload["version"])
 
     def test_consumer_update_pins_installed_runtime_on_ipk(self):
         result, payload, _ = self.invoke(
