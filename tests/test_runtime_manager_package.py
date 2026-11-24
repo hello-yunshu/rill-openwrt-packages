@@ -88,13 +88,21 @@ class RuntimeManagerPackageTests(unittest.TestCase):
                 usign.chmod(0o755)
             if release == "25.12.6":
                 apk = bindir / "apk"
+                # Models apk-tools 3 as it actually behaves on 25.12:
+                #   info -e <pkg>   installed?  (exit status only)
+                #   info -v <pkg>   VERBOSE: prints the description, never a version
+                #   list -I [pkg]   installed rows, "<name>-<version> <arch> ..."
+                #   list -u [pkg]   upgradable rows; with no argument it dumps the
+                #                   whole system, which is how the backend answers
+                #                   three package questions from one query
+                #   list -a <pkg>   all candidate rows from the configured feeds
                 apk.write_text(
                     "#!/bin/sh\n"
                     "case \"$1\" in\n"
                     "  info)\n"
                     "    if [ \"$2\" = -e ]; then\n"
                     "      case \" ${TEST_INSTALLED_PACKAGE:-} \" in *\" $3 \"*) exit 0;; esac\n"
-                "      case \" ${TEST_INSTALLED_PACKAGES:-} \" in *\" $3 \"*) exit 0;; esac\n"
+                    "      case \" ${TEST_INSTALLED_PACKAGES:-} \" in *\" $3 \"*) exit 0;; esac\n"
                     "      exit 1\n"
                     # apk 3.x prints the package description for `info -v`; the
                     # installed record from `list -I` carries <name>-<version>.
@@ -103,10 +111,17 @@ class RuntimeManagerPackageTests(unittest.TestCase):
                     "    else printf '%s-%s description:\\n' \"$2\" \"${TEST_CURRENT_VERSION:-1.5.6-r7}\"; exit 0; fi;;\n"
                     "  list)\n"
                     "    if [ \"$2\" = -I ]; then\n"
-                    "      case \" ${TEST_INSTALLED_PACKAGES:-${TEST_INSTALLED_PACKAGE:-}} \" in *\" $3 \"*) printf '%s-%s x86_64 {test} (MIT) [installed]\\n' \"$3\" \"${TEST_CURRENT_VERSION:-1.5.6-r7}\";; esac\n"
-                    "      exit 0\n"
+                    "      for p in ${TEST_INSTALLED_PACKAGE:-} ${TEST_INSTALLED_PACKAGES:-}; do\n"
+                    "        if [ -z \"${3:-}\" ] || [ \"$p\" = \"$3\" ]; then\n"
+                    "          printf '%s-%s x86_64 {test} (MIT) [installed]\\n' \"$p\" \"${TEST_CURRENT_VERSION:-1.5.6-r7}\"\n"
+                    "        fi\n"
+                    "      done\n"
                     "    elif [ \"$2\" = -u ]; then\n"
-                    "      case \" ${TEST_UPDATE_PACKAGES:-} \" in *\" $3 \"*) printf '%s-2.0.0-r0 x86_64 {test} (MIT) [upgradable from: 1.0.0-r0]\\n' \"$3\";; esac\n"
+                    "      for p in ${TEST_UPDATE_PACKAGES:-}; do\n"
+                    "        if [ -z \"${3:-}\" ] || [ \"$p\" = \"$3\" ]; then\n"
+                    "          printf '%s-2.0.0-r0 x86_64 {test} (MIT) [upgradable from: %s-1.0.0-r0]\\n' \"$p\" \"$p\"\n"
+                    "        fi\n"
+                    "      done\n"
                     "    elif [ \"$2\" = -a ] && [ -n \"${TEST_CANDIDATE_VERSION:-}\" ]; then\n"
                     "      printf '%s-%s x86_64 {test} (MIT)\\n' \"$3\" \"$TEST_CANDIDATE_VERSION\"\n"
                     "    fi; exit 0;;\n"
