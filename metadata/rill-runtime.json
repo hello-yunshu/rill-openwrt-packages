@@ -13,7 +13,7 @@
   "package": {
     "name": "rill-runtime",
     "version": "1.5.6",
-    "release": 8,
+    "release": 9,
     "canonicalRecipe": "package/rill-runtime/Makefile",
     "binary": "/usr/bin/rill-runtime"
   }
