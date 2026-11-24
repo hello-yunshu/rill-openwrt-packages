@@ -141,3 +141,20 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "rill-runtime $TAG" \
             --notes "Promoted from exact OpenWrt qualification run ${RUN_ID} for package ${VERSION}-${RELEASE}. Assets and qualification.json are from that same successful run; no release rebuild was performed."
+      - name: Trigger unified feed refresh
+        if: ${{ steps.release.outputs.publish == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.FEED_DISPATCH_TOKEN }}
+          SOURCE: ${{ github.repository }}
+          TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::notice::未配置 FEED_DISPATCH_TOKEN，跳过 yun-openwrt-packages 刷新"
+            exit 0
+          fi
+          payload="$(jq -nc --arg source "${SOURCE}" --arg tag "${TAG}" \
+            '{event_type: "upstream-release", client_payload: {source: $source, tag: $tag}}')"
+          printf '%s' "${payload}" | gh api -X POST repos/hello-yunshu/yun-openwrt-packages/dispatches --input -
+          echo "已通知 yun-openwrt-packages 刷新（${TAG}）"
