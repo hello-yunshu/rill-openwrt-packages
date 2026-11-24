@@ -133,7 +133,11 @@ package_version() {
 	_pv_package="$1"
 	case "$RILL_PKGTYPE" in
 		apk)
-			apk info -v "$_pv_package" 2>/dev/null | sed -n "1{s/^${_pv_package}-//;p;}"
+			# apk-tools 3 reads -v as "verbose", so `apk info -v` prints the
+			# package description rather than a version.  `apk list -I` lists
+			# the installed row as "<name>-<version> <arch> ..." and also
+			# avoids touching the repository indexes (~140 ms -> ~10 ms).
+			apk list -I "$_pv_package" 2>/dev/null | awk -v p="$_pv_package" '$1 ~ ("^" p "-[0-9]") { sub("^" p "-", "", $1); print $1; exit }'
 			;;
 		ipk)
 			opkg list-installed "$_pv_package" 2>/dev/null | awk -v name="$_pv_package" '$1 == name { print $3; exit }'
@@ -153,10 +157,27 @@ runtime_channel() {
 	printf none
 }
 
+# status() asks about three packages (its own Runtime plus the two consumer
+# apps), and `apk list -u <pkg>` costs ~130 ms each because every call reloads
+# the repository indexes. The unfiltered form dumps the same answer for the
+# whole system in ~120 ms, so read it once and answer all three from memory.
+_riu_dump=''
+_riu_loaded=false
+
+apk_upgradable_load() {
+	[ "$_riu_loaded" = true ] && return 0
+	_riu_loaded=true
+	_riu_dump="$(apk list -u 2>/dev/null)"
+}
+
 package_update_available() {
 	_pua_package="$1"
 	if [ "$RILL_PKGTYPE" = apk ]; then
-		apk list -u "$_pua_package" 2>/dev/null | grep -q '\[upgradable from:'
+		apk_upgradable_load
+		# Rows are "<name>-<version> <arch> ... [upgradable from: <old>]".  A
+		# version always starts with a digit, so anchoring on "<name>-<digit>"
+		# cannot confuse a shorter name with a longer package.
+		printf '%s\n' "$_riu_dump" | grep -q "^${_pua_package}-[0-9].*\[upgradable from:"
 	else
 		opkg list-upgradable "$_pua_package" 2>/dev/null | grep -q "^$_pua_package "
 	fi
