@@ -119,17 +119,11 @@ jobs:
           sdkdir=$(find "$RUNNER_TEMP/openwrt-sdk" -maxdepth 1 -type d -name "openwrt-sdk-${{ matrix.release_version }}-${{ matrix.sdk_prefix }}_*" -print -quit)
           test -n "$sdkdir"
           echo "SDKDIR=$sdkdir" >> "$GITHUB_ENV"
-      # Incremental build cache. Everything that is expensive but stable across
-      # runs is kept here: downloaded upstream tarballs (dl), the Rust/Cargo
-      # toolchains and their registry, the populated OpenWrt feeds, and the
-      # compiled Cargo target directory (by far the slowest step).
-      #
-      # The key MUST include metadata/rill-runtime.json: that file pins the
-      # immutable rill-ml source commit. Without it a bumped upstream commit
-      # could restore a stale build_dir/target-*/rill-ml-*/target and compile
-      # the previous source. The workflow file itself is included too, so an
-      # edit to the build recipe invalidates the cache.
-      - name: Cache OpenWrt downloads, feeds, Rust toolchain, Cargo and build output
+      # Incremental build cache for inputs that are independent of the pinned
+      # source commit: downloaded tarballs (dl), populated feeds, and the
+      # Rust/Cargo toolchains plus registry. restore-keys is safe here — a new
+      # upstream commit can reuse these without changing what gets compiled.
+      - name: Cache OpenWrt downloads, feeds and toolchains
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
@@ -137,10 +131,22 @@ jobs:
             ${{ env.SDKDIR }}/feeds
             ${{ runner.temp }}/rustup
             ${{ runner.temp }}/cargo
-            ${{ env.SDKDIR }}/build_dir/target-*/rill-ml-*/target
-          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('.github/workflows/qualify.yml', 'metadata/build-toolchain.json', 'metadata/rill-runtime.json', 'package/rill-runtime/Makefile', 'package/rill-runtime-manager/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
+          key: rill-openwrt-env-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('.github/workflows/qualify.yml', 'metadata/build-toolchain.json', 'package/rill-runtime/Makefile', 'package/rill-runtime-manager/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
           restore-keys: |
-            rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-
+            rill-openwrt-env-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-
+
+      # Compiled Cargo output is kept in a SEPARATE cache with NO restore-keys.
+      # It is byte-for-byte tied to the immutable rill-ml commit in
+      # metadata/rill-runtime.json; a prefix fallback would restore a previous
+      # commit's build_dir/target-*/rill-ml-*/target and produce a stale build
+      # (or a failed one when the sources no longer line up). An exact-key miss
+      # simply recompiles, which is correct. The workflow file and Makefile are
+      # also hashed so a build-recipe edit invalidates this cache.
+      - name: Cache compiled Cargo target (exact source commit)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.SDKDIR }}/build_dir/target-*/rill-ml-*/target
+          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('.github/workflows/qualify.yml', 'metadata/build-toolchain.json', 'metadata/rill-runtime.json', 'package/rill-runtime/Makefile', 'package/rill-runtime-manager/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
       - name: Prepare SDK and build package
         shell: bash
         run: |
