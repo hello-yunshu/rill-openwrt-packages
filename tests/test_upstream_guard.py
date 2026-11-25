@@ -64,6 +64,24 @@ class UpstreamGuardTests(unittest.TestCase):
         result = guard.assess_provenance(**{**self.COMMON, "package_version": "1.5.7"})
         self.assertTrue(result["rollback"])
 
+    def test_ci_only_commits_are_not_build_relevant(self):
+        self.assertEqual(
+            guard.build_relevant_changes([
+                ".github/workflows/notify-openwrt-feed.yml",
+                ".github/dependabot.yml",
+            ]),
+            [],
+        )
+
+    def test_runtime_changes_remain_drift(self):
+        self.assertEqual(
+            guard.build_relevant_changes([
+                ".github/workflows/ci.yml",
+                "Cargo.lock",
+            ]),
+            ["Cargo.lock"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
