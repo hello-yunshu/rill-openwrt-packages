@@ -21,14 +21,14 @@
 | 安装路径 | <code>/usr/bin/rill-runtime</code> |
 | 上游来源 | RillML upstream main 的 immutable commit |
 | 当前来源版本 | <code>1.5.6</code> |
-| 当前上游 commit | <code>1e962a82443088229714877eee98617f1596eee8</code> |
+| 当前上游 commit | <code>a2fb93a46938cbce05696c113876ab00d5c80702</code> |
 | 当前包版本 | <code>1.5.6-r10</code> |
 | 包许可证 | MIT |
 | 包维护者 | Rill OpenWrt Packages maintainers |
 | 分发 Release | [rill-runtime releases](https://github.com/hello-yunshu/rill-openwrt-packages/releases) |
 
 当前只发布一个 canonical Stable 包 <code>rill-runtime</code>。它固定到上游 main commit
-<code>1e962a82443088229714877eee98617f1596eee8</code>，使用 Rust 1.96.0 构建。
+<code>a2fb93a46938cbce05696c113876ab00d5c80702</code>，使用 Rust 1.96.0 构建。
 旧设备上可能仍安装有历史 <code>rill-runtime-preview</code>；manager 会识别该包作为迁移状态。
 新资格、feed 和 Release 均只包含 <code>rill-runtime</code>。
 

@@ -118,6 +118,10 @@ def apply(root: Path, change: dict[str, object]) -> list[str]:
         updated = text.replace(old_package, new_package)
         if version != previous_version:
             updated = updated.replace(previous_version, version)
+        # The READMEs quote the pinned commit in prose as well as in tables.
+        # Rewrite any 40-hex SHA so the documentation cannot drift behind the
+        # metadata (and heal a README that already drifted).
+        updated = re.sub(r"\b[0-9a-f]{40}\b", commit, updated)
         if updated != text:
             path.write_text(updated, encoding="utf-8")
             touched.append(str(readme))
