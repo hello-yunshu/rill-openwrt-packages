@@ -33,10 +33,10 @@ class StableQualificationTests(unittest.TestCase):
         return {'schemaVersion':4,'qualificationState':'automated-qualification','releaseEligible':True,
             'packageCommit':'f'*40,'runId':123,'runAttempt':2,
             'package':{'name':'rill-runtime','recipe':'package/rill-runtime/Makefile','binary':'/usr/bin/rill-runtime','version':'1.5.6','release':8},
-            'upstream':{'commit':'1e962a82443088229714877eee98617f1596eee8','sourceType':'immutable-git-commit',
-                'repository':'hello-yunshu/rill-ml','version':'1.5.6','tag':'stable-main-1e962a8','sourcePatches':[]},
+            'upstream':{'commit':'a2fb93a46938cbce05696c113876ab00d5c80702','sourceType':'immutable-git-commit',
+                'repository':'hello-yunshu/rill-ml','version':'1.5.6','tag':'stable-main-a2fb93a','sourcePatches':[]},
             'build':{'sourceLockSha256':'c'*64,'rustToolchain':'1.96.0','runtimeFeatures':['wasm'],'defaultFeatures':True,'sourcePatches':[],
-                'verifiedSource':{'baseCommit':'1e962a82443088229714877eee98617f1596eee8','gitTree':'b'*40,'patchedTreeSha256':'c'*64}},'targets':rows}
+                'verifiedSource':{'baseCommit':'a2fb93a46938cbce05696c113876ab00d5c80702','gitTree':'b'*40,'patchedTreeSha256':'c'*64}},'targets':rows}
 
     def test_stable_only_matrix_passes(self):
         self.assertEqual(verify(self.evidence(),arguments()),[])
@@ -54,6 +54,19 @@ class StableQualificationTests(unittest.TestCase):
         args=arguments();args.artifacts_dir=Path(tempfile.gettempdir());args.apk='apk'
         with patch.object(inspect_runtime_package,'inspect',side_effect=inspected):
             self.assertEqual(verify(data,args),[])
+
+    def test_tag_must_match_evidence_commit_not_a_pinned_literal(self):
+        # Any immutable commit is acceptable as long as the tag is derived
+        # from it; a bumped pin must not be rejected for carrying a new commit.
+        data = self.evidence()
+        data['upstream']['commit'] = 'b' * 40
+        data['upstream']['tag'] = 'stable-main-bbbbbbb'
+        data['build']['verifiedSource']['baseCommit'] = 'b' * 40
+        self.assertEqual(verify(data, arguments()), [])
+        # But a tag that does not match its own commit must still be rejected.
+        tampered = self.evidence()
+        tampered['upstream']['tag'] = 'stable-main-deadbeef'
+        self.assertTrue(verify(tampered, arguments()))
 
     def test_rejects_preview_and_malformed_stable_evidence(self):
         self.assertTrue(verify(self.evidence(),arguments('preview')))

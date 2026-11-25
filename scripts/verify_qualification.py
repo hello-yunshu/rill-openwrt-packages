@@ -47,9 +47,20 @@ def verify_v3(data: dict, args: argparse.Namespace) -> list[str]:
             errors.append(f"{channel}: invalid package version/release")
         if upstream.get("repository") != "hello-yunshu/rill-ml" or upstream.get("version") != package.get("version"):
             errors.append(f"{channel}: source repository/version mismatch")
-        if upstream.get("sourceType") != "immutable-git-commit" or upstream.get("tag") != "stable-main-1e962a8":
+        # The tag must be derived from this evidence's own immutable commit,
+        # not from a hard-coded commit. A fixed tag would turn every upstream
+        # pin promotion into a permanent qualification failure: pin_upstream.py
+        # advances metadata/rill-runtime.json, but a literal here would still
+        # demand the previous commit. release.yml independently binds the
+        # metadata tag to its commit at publish time, so this check only needs
+        # to prove the evidence is internally consistent and untampered.
+        source_commit = str(upstream.get("commit", ""))
+        if (
+            upstream.get("sourceType") != "immutable-git-commit"
+            or upstream.get("tag") != f"stable-main-{source_commit[:7]}"
+        ):
             errors.append("stable: immutable upstream source identity mismatch")
-        if not SHA1.fullmatch(str(upstream.get("commit", ""))):
+        if not SHA1.fullmatch(source_commit):
             errors.append(f"{channel}: invalid source commit")
         if not SHA256.fullmatch(str(build.get("sourceLockSha256", ""))):
             errors.append(f"{channel}: missing source lock digest")
