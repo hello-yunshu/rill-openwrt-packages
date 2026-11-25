@@ -24,38 +24,49 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Check automation token
+      # A PAT is required here: a PR opened with GITHUB_TOKEN does not trigger
+      # the qualification workflows on the PR branch, so the merge gate could
+      # never go CLEAN. Prefer a dedicated PIN_PUSH_TOKEN, but fall back to the
+      # existing FEED_DISPATCH_TOKEN (same repo write scope) so a missing
+      # dedicated secret does not silently freeze the pin forever.
+      - name: Resolve automation token
         id: token
         env:
-          TOKEN: ${{ secrets.PIN_PUSH_TOKEN }}
+          PIN_TOKEN: ${{ secrets.PIN_PUSH_TOKEN }}
+          FEED_TOKEN: ${{ secrets.FEED_DISPATCH_TOKEN }}
         run: |
           set -euo pipefail
-          if [ -n "${TOKEN}" ]; then
+          if [ -n "${PIN_TOKEN}" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "source=pin" >> "$GITHUB_OUTPUT"
+          elif [ -n "${FEED_TOKEN}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "source=feed" >> "$GITHUB_OUTPUT"
+            echo "::notice::PIN_PUSH_TOKEN 未配置，回退到 FEED_DISPATCH_TOKEN 推进上游 pin"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::未配置 PIN_PUSH_TOKEN，跳过上游自动晋升"
+            echo "::error::PIN_PUSH_TOKEN 与 FEED_DISPATCH_TOKEN 都未配置，无法自动推进上游 pin"
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: steps.token.outputs.ready == 'true'
         with:
           ref: main
-          token: ${{ secrets.PIN_PUSH_TOKEN }}
+          token: ${{ secrets.PIN_PUSH_TOKEN || secrets.FEED_DISPATCH_TOKEN }}
       - name: Advance the pin
         id: pin
         if: steps.token.outputs.ready == 'true'
         env:
-          GH_TOKEN: ${{ secrets.PIN_PUSH_TOKEN }}
+          GH_TOKEN: ${{ secrets.PIN_PUSH_TOKEN || secrets.FEED_DISPATCH_TOKEN }}
         run: python3 scripts/pin_upstream.py --github-output "$GITHUB_OUTPUT"
       - name: Re-check the rewritten pin against upstream
         if: steps.pin.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.PIN_PUSH_TOKEN }}
+          GH_TOKEN: ${{ secrets.PIN_PUSH_TOKEN || secrets.FEED_DISPATCH_TOKEN }}
         run: python3 scripts/check_upstream_version.py --json
       - name: Open pin pull request and merge after checks
         if: steps.pin.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.PIN_PUSH_TOKEN }}
+          GH_TOKEN: ${{ secrets.PIN_PUSH_TOKEN || secrets.FEED_DISPATCH_TOKEN }}
           VERSION: ${{ steps.pin.outputs.version }}
           RELEASE: ${{ steps.pin.outputs.release }}
           COMMIT: ${{ steps.pin.outputs.commit }}
