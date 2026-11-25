@@ -1,0 +1,40 @@
+# ---- 私钥：绝对不入库 ----
+*.key
+*.pem
+!*-public-key.pem
+
+# ---- SDK / 构建产物 ----
+sdk/
+sdk-*/
+build/
+build_dir/
+staging_dir/
+output/
+bin/
+tmp/
+dl/
+logs/
+.tmp/
+*.tar.gz
+*.tar.xz
+*.tar.bz2
+*.zst
+*.img
+*.img.gz
+*.bin
+*.itb
+
+# ---- 本地临时目录 ----
+.work/
+.cache/
+.cache-*/
+*.log
+*.swp
+
+# ---- 系统垃圾 ----
+.DS_Store
+Thumbs.db
+
+# ---- Python ----
+__pycache__/
+*.pyc
