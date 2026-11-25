@@ -95,7 +95,7 @@ jobs:
           version=$(jq -r '.package.version' "$evidence")
           release=$(jq -r '.package.release' "$evidence")
           tag="v${version}-r${release}"
-          test "$(jq -r '.upstream.tag' metadata/rill-runtime.json)" = "stable-main-1e962a8"
+          test "$(jq -r '.upstream.tag' metadata/rill-runtime.json)" = "stable-main-$(jq -r '.upstream.commit' metadata/rill-runtime.json | cut -c1-7)"
           test "$(jq -r '.upstream.commit' metadata/rill-runtime.json)" = "$(jq -r '.upstream.commit' "$evidence")"
           mapfile -t assets < <(find release-assets -maxdepth 2 -type f \( -name '*.ipk' -o -name '*.apk' \) -print | sort)
           target_count=$(jq '.targets|length' "$evidence")

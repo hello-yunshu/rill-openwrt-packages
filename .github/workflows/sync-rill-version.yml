@@ -2,10 +2,6 @@ name: Check pinned Rill upstream source
 
 on:
   workflow_dispatch:
-  # rill-ml 发布 Stable 运行时版本后 dispatch 过来，检查钉住的 upstream
-  # 是否已经落后；落后时本 job 失败即为该信号，晋升仍需人工确认。
-  repository_dispatch:
-    types: [rill-upstream-release]
 
 permissions:
   contents: read
