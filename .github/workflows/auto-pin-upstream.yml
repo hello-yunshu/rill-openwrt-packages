@@ -46,6 +46,7 @@ jobs:
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "::error::PIN_PUSH_TOKEN 与 FEED_DISPATCH_TOKEN 都未配置，无法自动推进上游 pin"
+            exit 1
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: steps.token.outputs.ready == 'true'

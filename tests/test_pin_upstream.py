@@ -86,6 +86,16 @@ class ApplyPinTest(unittest.TestCase):
         readme = (self.root / "README.en.md").read_text(encoding="utf-8")
         self.assertIn("1.5.7-r1", readme)
 
+    def test_readme_pin_commit_tracks_metadata(self):
+        stale = "1e962a82443088229714877eee98617f1596eee8"
+        (self.root / "README.md").write_text(
+            f"| 当前上游 commit | <code>{stale}</code> |\n", encoding="utf-8"
+        )
+        pin_upstream.apply(self.root, self.change)
+        readme = (self.root / "README.md").read_text(encoding="utf-8")
+        self.assertIn("a" * 40, readme)
+        self.assertNotIn(stale, readme)
+
 
 if __name__ == "__main__":
     unittest.main()
