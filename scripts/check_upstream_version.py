@@ -15,6 +15,10 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[1]
 REPO = "hello-yunshu/rill-ml"
 SEMVER = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
+# CI configuration cannot change the packaged runtime, so editing it must not
+# force a re-pin of the immutable upstream commit.
+CI_ONLY_PREFIXES = (".github/",)
+COMPARE_FILE_LIMIT = 300
 
 
 def api(path: str) -> object:
@@ -96,6 +100,24 @@ def latest_main_commit() -> str:
     return commit
 
 
+def build_relevant_changes(paths: list[str]) -> list[str]:
+    """Changed paths that can affect the packaged runtime."""
+    return [path for path in paths if not path.startswith(CI_ONLY_PREFIXES)]
+
+
+def changed_files(base: str, head: str) -> list[str]:
+    """Files that differ between the pinned commit and upstream main."""
+    if base == head:
+        return []
+    comparison = api(f"repos/{REPO}/compare/{base}...{head}")
+    if comparison.get("status") == "diverged":
+        raise RuntimeError(f"pinned commit {base} is not an ancestor of upstream {head}")
+    files = [str(item.get("filename", "")) for item in comparison.get("files") or []]
+    if comparison.get("truncated") or len(files) >= COMPARE_FILE_LIMIT:
+        raise RuntimeError(f"upstream diff since {base} is too large to classify")
+    return files
+
+
 def archive_sha256(tag: str) -> str:
     request = Request(
         f"https://github.com/{REPO}/archive/refs/tags/{tag}.tar.gz",
@@ -172,10 +194,11 @@ def describe(release: dict[str, object]) -> dict[str, object]:
     package_version, package_release, _ = package_fields()
     metadata_version, metadata_tag, metadata_commit, _ = metadata_fields()
     upstream_commit = latest_main_commit()
+    drift = build_relevant_changes(changed_files(metadata_commit, upstream_commit))
     assessment = {
         "sameVersion": package_version == metadata_version,
         "mutatedStable": False,
-        "provenanceInSync": metadata_commit == upstream_commit and metadata_tag.startswith("stable-main-"),
+        "provenanceInSync": metadata_tag.startswith("stable-main-") and not drift,
         "rollback": False,
     }
     return {
@@ -201,7 +224,11 @@ def main() -> int:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2
     if not report["provenanceInSync"]:
-        print("SOURCE_DRIFT: upstream main advanced; review and pin its exact commit before qualification", file=sys.stderr)
+        print(
+            "SOURCE_DRIFT: upstream main has build-relevant commits after the pinned commit; "
+            "review and pin its exact commit before qualification",
+            file=sys.stderr,
+        )
         return 2
     if args.json:
         print(json.dumps(report, indent=2, sort_keys=True))
