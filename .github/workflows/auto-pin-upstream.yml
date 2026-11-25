@@ -1,0 +1,88 @@
+name: Auto-pin upstream rill-ml
+
+# The feed pins an immutable rill-ml commit, so following upstream needs a pin
+# commit plus a package release bump.  This turns that mechanical step into a
+# pull request that must still pass the full qualification matrix; nothing here
+# bypasses the protected main branch or the release gates.
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [rill-upstream-release]
+  schedule:
+    - cron: "23 4 * * *"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-pin-upstream
+  cancel-in-progress: false
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check automation token
+        id: token
+        env:
+          TOKEN: ${{ secrets.PIN_PUSH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${TOKEN}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::未配置 PIN_PUSH_TOKEN，跳过上游自动晋升"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: steps.token.outputs.ready == 'true'
+        with:
+          ref: main
+          token: ${{ secrets.PIN_PUSH_TOKEN }}
+      - name: Advance the pin
+        id: pin
+        if: steps.token.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.PIN_PUSH_TOKEN }}
+        run: python3 scripts/pin_upstream.py --github-output "$GITHUB_OUTPUT"
+      - name: Re-check the rewritten pin against upstream
+        if: steps.pin.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.PIN_PUSH_TOKEN }}
+        run: python3 scripts/check_upstream_version.py --json
+      - name: Open pin pull request and merge after checks
+        if: steps.pin.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.PIN_PUSH_TOKEN }}
+          VERSION: ${{ steps.pin.outputs.version }}
+          RELEASE: ${{ steps.pin.outputs.release }}
+          COMMIT: ${{ steps.pin.outputs.commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="chore/auto-pin-${COMMIT:0:7}-${VERSION}-r${RELEASE}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "${branch}"
+          git add metadata/rill-runtime.json package/rill-runtime/Makefile README.md README.en.md
+          git commit -m "chore(release): rill-runtime ${VERSION}-r${RELEASE}"
+          git push origin "${branch}"
+          gh pr create --repo "${GITHUB_REPOSITORY}" --base main --head "${branch}" \
+            --title "chore(release): rill-runtime ${VERSION}-r${RELEASE}" \
+            --body "自动把 upstream pin 推进到 ${COMMIT}（构建相关漂移已由 scripts/pin_upstream.py 分类）。仍需完整 qualification 与既有 release 门禁通过才会发布。"
+          pr="$(gh pr view "${branch}" --repo "${GITHUB_REPOSITORY}" --json number --jq .number)"
+          # 只有规则集要求的检查通过后 mergeStateStatus 才会变成 CLEAN；
+          # 不必等完整矩阵跑完，main 上的 qualification 仍会全量执行。
+          for _ in $(seq 1 80); do
+            state="$(gh pr view "${pr}" --repo "${GITHUB_REPOSITORY}" --json mergeStateStatus --jq .mergeStateStatus)"
+            case "${state}" in
+              CLEAN) break ;;
+              BEHIND) gh pr update-branch "${pr}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1 || true ;;
+              DIRTY) echo "::error::pin PR 与 main 冲突"; exit 1 ;;
+            esac
+            sleep 15
+          done
+          test "${state}" = CLEAN
+          gh pr merge "${pr}" --repo "${GITHUB_REPOSITORY}" --merge --delete-branch
