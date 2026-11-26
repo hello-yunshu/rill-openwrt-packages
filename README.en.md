@@ -9,8 +9,8 @@ The only current package channel is Stable `rill-runtime`, which installs `/usr/
 | Field | Value |
 | --- | --- |
 | Upstream Runtime version | `1.5.6` |
-| Pinned upstream commit | `a2fb93a46938cbce05696c113876ab00d5c80702` |
-| OpenWrt package version | `1.5.6-r10` |
+| Pinned upstream commit | `50175cd54fce3a8b1cac77ec851dc468719181e8` |
+| OpenWrt package version | `1.5.6-r11` |
 | Rust toolchain | `1.96.0` |
 
 Older devices may still have the retired `rill-runtime-preview` package installed. It shares the Runtime binary path and conflicts with `rill-runtime`; the Runtime manager detects it as a legacy migration state. New qualification, feed, and Release artifacts contain only `rill-runtime`.

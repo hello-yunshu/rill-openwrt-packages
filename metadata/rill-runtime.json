@@ -2,18 +2,18 @@
   "schemaVersion": 1,
   "upstream": {
     "repository": "https://github.com/hello-yunshu/rill-ml",
-    "tag": "stable-main-a2fb93a",
+    "tag": "stable-main-50175cd",
     "version": "1.5.6",
-    "commit": "a2fb93a46938cbce05696c113876ab00d5c80702",
+    "commit": "50175cd54fce3a8b1cac77ec851dc468719181e8",
     "sourceType": "immutable-git-commit",
-    "releaseUrl": "https://github.com/hello-yunshu/rill-ml/commit/a2fb93a46938cbce05696c113876ab00d5c80702",
-    "archiveUrl": "https://github.com/hello-yunshu/rill-ml/archive/a2fb93a46938cbce05696c113876ab00d5c80702.tar.gz",
+    "releaseUrl": "https://github.com/hello-yunshu/rill-ml/commit/50175cd54fce3a8b1cac77ec851dc468719181e8",
+    "archiveUrl": "https://github.com/hello-yunshu/rill-ml/archive/50175cd54fce3a8b1cac77ec851dc468719181e8.tar.gz",
     "sourcePatches": []
   },
   "package": {
     "name": "rill-runtime",
     "version": "1.5.6",
-    "release": 10,
+    "release": 11,
     "canonicalRecipe": "package/rill-runtime/Makefile",
     "binary": "/usr/bin/rill-runtime"
   }
