@@ -1,14 +1,8 @@
+PKG_MAKEFILE_DIR:=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rill-runtime
-RILL_RECIPE_DIR:=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-RILL_SOURCE_VERSION_FILE:=$(if $(wildcard $(RILL_RECIPE_DIR)../../metadata/rill-runtime.json),$(RILL_RECIPE_DIR)../../VERSION)
-RILL_SDK_VERSION_FILE:=$(TOPDIR)/package/rill-runtime/VERSION
-RILL_VERSION_FILE:=$(firstword $(wildcard $(RILL_RECIPE_DIR)VERSION $(RILL_SOURCE_VERSION_FILE) $(RILL_SDK_VERSION_FILE)))
-PKG_VERSION:=$(strip $(shell cat "$(or $(RILL_VERSION_FILE),$(error Missing rill-runtime VERSION))"))
-ifeq ($(PKG_VERSION),)
-  $(error Empty rill-runtime VERSION)
-endif
+include $(PKG_MAKEFILE_DIR)package-version.mk
 PKG_RELEASE:=11
 PKG_LICENSE:=MIT
 PKG_MAINTAINER:=Rill OpenWrt Packages maintainers

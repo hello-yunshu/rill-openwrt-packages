@@ -132,12 +132,16 @@ def archive_sha256(tag: str) -> str:
 
 def package_fields() -> tuple[str, str, str]:
     text = (ROOT / "package/rill-runtime/Makefile").read_text(encoding="utf-8")
+    resolver = (ROOT / "package-version.mk").read_text(encoding="utf-8")
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
-    version_assignment = re.search(r"(?m)^PKG_VERSION:=.*$", text)
+    version_assignment = re.search(r"(?m)^PKG_VERSION:=.*$", resolver)
     release = re.search(r"(?m)^PKG_RELEASE:=(\S+)$", text)
     digest = re.search(r"(?m)^PKG_HASH:=(\S+)$", text)
-    if not version_assignment or "$(RILL_VERSION_FILE)" not in version_assignment.group():
-        raise RuntimeError("rill-runtime Makefile must read PKG_VERSION from VERSION")
+    shared_include = 'include $(PKG_MAKEFILE_DIR)package-version.mk'
+    if (not version_assignment or shared_include not in text
+            or not (ROOT / "package-version.mk").is_file()
+            or not (ROOT / "package/rill-runtime/VERSION").is_file()):
+        raise RuntimeError("rill-runtime Makefile must use the shared adjacent-VERSION rule")
     if stable_version(f"v{version}") is None or not release:
         raise RuntimeError("invalid rill-runtime VERSION or missing PKG_RELEASE")
     return version, release.group(1), digest.group(1) if digest else ""
