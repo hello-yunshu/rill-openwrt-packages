@@ -23,7 +23,8 @@ class UpdateTransactionTests(unittest.TestCase):
     def fixture(self, root):
         (root/'package/rill-runtime').mkdir(parents=True)
         (root/'metadata').mkdir()
-        text='PKG_VERSION:=1.5.6\nPKG_RELEASE:=3\nPKG_HASH:='+'b'*64+'\n'
+        (root/'VERSION').write_text('1.5.6\n')
+        text='PKG_VERSION:=$(strip $(shell cat "$(RILL_VERSION_FILE)"))\nPKG_RELEASE:=3\nPKG_HASH:='+'b'*64+'\n'
         (root/'package/rill-runtime/Makefile').write_text(text)
         data={'schemaVersion':1,'extension':{'keep':True},
               'upstream':{'version':'1.5.6','tag':'v1.5.6','commit':'a'*40,'archiveSha256':'b'*64,'extension':42},
@@ -42,6 +43,7 @@ class UpdateTransactionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory); self.fixture(root)
             self.run_update(root,'1.5.7')
+            self.assertEqual((root/'VERSION').read_text(), '1.5.7\n')
             data=json.loads((root/'metadata/rill-runtime.json').read_text())
             self.assertEqual(data['extension'],{'keep':True})
             self.assertEqual(data['upstream']['extension'],42)

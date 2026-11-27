@@ -64,9 +64,14 @@ arm_cortex-a7_neon-vfpv4，不能从存在 Rust target 或能够交叉编译推�
     ./scripts/feeds update packages
     ./scripts/feeds install rust
     cp -a /path/to/rill-openwrt-packages/package/rill-runtime package/rill-runtime
+    cp /path/to/rill-openwrt-packages/VERSION package/rill-runtime/VERSION
     echo 'CONFIG_PACKAGE_rill-runtime=y' >> .config
     make defconfig
     make package/rill-runtime/compile V=s
+
+仓库根目录的 `VERSION` 管理 Runtime 版本。管理器独立发布版本，由
+`package/rill-runtime-manager/VERSION` 管理。两者的 OpenWrt 包修订号仍由各自的
+`PKG_RELEASE` 管理。
 
 生成的 IPK 或 APK 位于 SDK 的 <code>bin/</code> 目录下。Release 发布后，实际生产使用时
 应以本仓库的 immutable Release 及其中同一 qualification run 的

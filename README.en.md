@@ -24,9 +24,14 @@ Build with a matching OpenWrt SDK and Rust feed:
     ./scripts/feeds update packages
     ./scripts/feeds install rust
     cp -a /path/to/rill-openwrt-packages/package/rill-runtime package/rill-runtime
+    cp /path/to/rill-openwrt-packages/VERSION package/rill-runtime/VERSION
     echo 'CONFIG_PACKAGE_rill-runtime=y' >> .config
     make defconfig
     make package/rill-runtime/compile V=s
+
+Runtime takes its version from the repository root `VERSION`. The manager
+uses `package/rill-runtime-manager/VERSION` for its independent version.
+Each recipe still declares its OpenWrt package revision in `PKG_RELEASE`.
 
 Qualification evidence uses schema 4 and contains one `package`, top-level `upstream` and `build` provenance, and top-level `targets`. Release qualification builds and inspects only the canonical Stable package.
 

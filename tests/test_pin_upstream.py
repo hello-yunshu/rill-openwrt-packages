@@ -13,7 +13,7 @@ from scripts import pin_upstream
 RECIPE = """include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rill-runtime
-PKG_VERSION:=1.5.6
+PKG_VERSION:=$(strip $(shell cat "$(RILL_VERSION_FILE)"))
 PKG_RELEASE:=9
 PKG_SOURCE_VERSION:=1e962a82443088229714877eee98617f1596eee8
 """
@@ -41,6 +41,7 @@ class ApplyPinTest(unittest.TestCase):
         (self.root / "metadata").mkdir()
         (self.root / "package/rill-runtime").mkdir(parents=True)
         (self.root / pin_upstream.RECIPE).write_text(RECIPE, encoding="utf-8")
+        (self.root / pin_upstream.VERSION_FILE).write_text("1.5.6\n", encoding="utf-8")
         (self.root / pin_upstream.METADATA).write_text(
             json.dumps(METADATA, indent=2) + "\n", encoding="utf-8"
         )
@@ -69,6 +70,7 @@ class ApplyPinTest(unittest.TestCase):
         recipe = (self.root / pin_upstream.RECIPE).read_text(encoding="utf-8")
         self.assertIn("PKG_RELEASE:=10", recipe)
         self.assertIn(f"PKG_SOURCE_VERSION:={'a' * 40}", recipe)
+        self.assertIn('PKG_VERSION:=$(strip $(shell cat "$(RILL_VERSION_FILE)"))', recipe)
         readme = (self.root / "README.md").read_text(encoding="utf-8")
         self.assertIn("1.5.6-r10", readme)
         self.assertNotIn("1.5.6-r9", readme)
@@ -76,6 +78,7 @@ class ApplyPinTest(unittest.TestCase):
     def test_new_version_rewrites_metadata(self):
         change = {**self.change, "version": "1.5.7", "release": 1}
         pin_upstream.apply(self.root, change)
+        self.assertEqual((self.root / pin_upstream.VERSION_FILE).read_text(), "1.5.7\n")
         metadata = json.loads((self.root / pin_upstream.METADATA).read_text())
         self.assertEqual(metadata["upstream"]["tag"], "stable-main-aaaaaaa")
         self.assertEqual(metadata["upstream"]["version"], "1.5.7")
