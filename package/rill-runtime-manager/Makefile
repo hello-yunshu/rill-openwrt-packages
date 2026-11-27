@@ -1,7 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rill-runtime-manager
-RILL_VERSION_FILE:=$(dir $(realpath $(lastword $(MAKEFILE_LIST))))VERSION
+RILL_SDK_VERSION_FILE:=$(TOPDIR)/package/rill-runtime-manager/VERSION
+RILL_VERSION_FILE:=$(firstword $(wildcard $(dir $(realpath $(lastword $(MAKEFILE_LIST))))VERSION $(RILL_SDK_VERSION_FILE)))
 PKG_VERSION:=$(strip $(shell cat "$(RILL_VERSION_FILE)"))
 ifeq ($(PKG_VERSION),)
   $(error Missing rill-runtime-manager VERSION)

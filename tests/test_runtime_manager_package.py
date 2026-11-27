@@ -166,6 +166,8 @@ class RuntimeManagerPackageTests(unittest.TestCase):
         package_definition = makefile.split("define Package/rill-runtime-manager\n", 1)[1].split("endef", 1)[0]
         install = makefile.split("define Package/rill-runtime-manager/install", 1)[1]
         self.assertIn("PKGARCH:=all", package_definition)
+        self.assertIn("RILL_SDK_VERSION_FILE:=$(TOPDIR)/package/rill-runtime-manager/VERSION", makefile)
+        self.assertIn("$(RILL_SDK_VERSION_FILE)", makefile)
         self.assertRegex(makefile, r"define Build/Compile\s+:\s*endef")
         self.assertNotIn("/usr/bin/rill-runtime", install)
         self.assertNotIn("/usr/bin/rill-runtime", str(PACKAGE / "files"))

@@ -163,6 +163,7 @@ jobs:
           test "$(tr -d '\r\n' < package/rill-runtime/VERSION)" = "$(tr -d '\r\n' < "$GITHUB_WORKSPACE/VERSION")"
           mkdir -p package/rill-runtime-manager
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime-manager/." package/rill-runtime-manager/
+          test "$(tr -d '\r\n' < package/rill-runtime-manager/VERSION)" = "$(tr -d '\r\n' < "$GITHUB_WORKSPACE/package/rill-runtime-manager/VERSION")"
           {
             echo 'CONFIG_PACKAGE_rill-runtime=y'
             echo 'CONFIG_PACKAGE_rill-runtime-manager=y'
