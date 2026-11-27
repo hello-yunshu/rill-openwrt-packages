@@ -182,18 +182,24 @@ jobs:
           [[ "$(rustc --version)" == "rustc $expected_toolchain "* ]]
           unset CI
           target=package/rill-runtime/compile
+          failed_target="$target"
           jobs="$(($(nproc)+1))"
-          if make -j"$jobs" "$target" package/rill-runtime-manager/compile; then
-            exit 0
+          if make -j"$jobs" "$target"; then
+            failed_target=package/rill-runtime-manager/compile
+            if make -j"$jobs" "$failed_target"; then
+              exit 0
+            else
+              fast_rc=$?
+            fi
           else
             fast_rc=$?
           fi
-          echo "::error::Fast parallel OpenWrt build failed: $target"
+          echo "::error::Fast OpenWrt build failed: $failed_target"
           echo "::group::OpenWrt config at fast-build failure"
           if [ -f .config ]; then cat .config; fi
           echo "::endgroup::"
-          echo "::group::Serial verbose diagnostic: $target"
-          if make -j1 "$target" V=s; then
+          echo "::group::Serial verbose diagnostic: $failed_target"
+          if make -j1 "$failed_target" V=s; then
             diagnostic_rc=0
           else
             diagnostic_rc=$?
