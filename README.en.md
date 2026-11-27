@@ -9,8 +9,8 @@ The only current package channel is Stable `rill-runtime`, which installs `/usr/
 | Field | Value |
 | --- | --- |
 | Upstream Runtime version | `1.5.6` |
-| Pinned upstream commit | `a2fb93a46938cbce05696c113876ab00d5c80702` |
-| OpenWrt package version | `1.5.6-r10` |
+| Pinned upstream commit | `50175cd54fce3a8b1cac77ec851dc468719181e8` |
+| OpenWrt package version | `1.5.6-r11` |
 | Rust toolchain | `1.96.0` |
 
 Older devices may still have the retired `rill-runtime-preview` package installed. It shares the Runtime binary path and conflicts with `rill-runtime`; the Runtime manager detects it as a legacy migration state. New qualification, feed, and Release artifacts contain only `rill-runtime`.
@@ -24,9 +24,14 @@ Build with a matching OpenWrt SDK and Rust feed:
     ./scripts/feeds update packages
     ./scripts/feeds install rust
     cp -a /path/to/rill-openwrt-packages/package/rill-runtime package/rill-runtime
+    cp /path/to/rill-openwrt-packages/VERSION package/rill-runtime/VERSION
     echo 'CONFIG_PACKAGE_rill-runtime=y' >> .config
     make defconfig
     make package/rill-runtime/compile V=s
+
+Runtime takes its version from the repository root `VERSION`. The manager
+uses `package/rill-runtime-manager/VERSION` for its independent version.
+Each recipe still declares its OpenWrt package revision in `PKG_RELEASE`.
 
 Qualification evidence uses schema 4 and contains one `package`, top-level `upstream` and `build` provenance, and top-level `targets`. Release qualification builds and inspects only the canonical Stable package.
 

@@ -21,14 +21,14 @@
 | 安装路径 | <code>/usr/bin/rill-runtime</code> |
 | 上游来源 | RillML upstream main 的 immutable commit |
 | 当前来源版本 | <code>1.5.6</code> |
-| 当前上游 commit | <code>a2fb93a46938cbce05696c113876ab00d5c80702</code> |
-| 当前包版本 | <code>1.5.6-r10</code> |
+| 当前上游 commit | <code>50175cd54fce3a8b1cac77ec851dc468719181e8</code> |
+| 当前包版本 | <code>1.5.6-r11</code> |
 | 包许可证 | MIT |
 | 包维护者 | Rill OpenWrt Packages maintainers |
 | 分发 Release | [rill-runtime releases](https://github.com/hello-yunshu/rill-openwrt-packages/releases) |
 
 当前只发布一个 canonical Stable 包 <code>rill-runtime</code>。它固定到上游 main commit
-<code>a2fb93a46938cbce05696c113876ab00d5c80702</code>，使用 Rust 1.96.0 构建。
+<code>50175cd54fce3a8b1cac77ec851dc468719181e8</code>，使用 Rust 1.96.0 构建。
 旧设备上可能仍安装有历史 <code>rill-runtime-preview</code>；manager 会识别该包作为迁移状态。
 新资格、feed 和 Release 均只包含 <code>rill-runtime</code>。
 
@@ -64,9 +64,14 @@ arm_cortex-a7_neon-vfpv4，不能从存在 Rust target 或能够交叉编译推�
     ./scripts/feeds update packages
     ./scripts/feeds install rust
     cp -a /path/to/rill-openwrt-packages/package/rill-runtime package/rill-runtime
+    cp /path/to/rill-openwrt-packages/VERSION package/rill-runtime/VERSION
     echo 'CONFIG_PACKAGE_rill-runtime=y' >> .config
     make defconfig
     make package/rill-runtime/compile V=s
+
+仓库根目录的 `VERSION` 管理 Runtime 版本。管理器独立发布版本，由
+`package/rill-runtime-manager/VERSION` 管理。两者的 OpenWrt 包修订号仍由各自的
+`PKG_RELEASE` 管理。
 
 生成的 IPK 或 APK 位于 SDK 的 <code>bin/</code> 目录下。Release 发布后，实际生产使用时
 应以本仓库的 immutable Release 及其中同一 qualification run 的

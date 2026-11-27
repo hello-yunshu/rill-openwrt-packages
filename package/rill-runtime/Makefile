@@ -1,13 +1,20 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rill-runtime
-PKG_VERSION:=1.5.6
-PKG_RELEASE:=10
+RILL_RECIPE_DIR:=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+RILL_SOURCE_VERSION_FILE:=$(if $(wildcard $(RILL_RECIPE_DIR)../../metadata/rill-runtime.json),$(RILL_RECIPE_DIR)../../VERSION)
+RILL_SDK_VERSION_FILE:=$(TOPDIR)/package/rill-runtime/VERSION
+RILL_VERSION_FILE:=$(firstword $(wildcard $(RILL_RECIPE_DIR)VERSION $(RILL_SOURCE_VERSION_FILE) $(RILL_SDK_VERSION_FILE)))
+PKG_VERSION:=$(strip $(shell cat "$(or $(RILL_VERSION_FILE),$(error Missing rill-runtime VERSION))"))
+ifeq ($(PKG_VERSION),)
+  $(error Empty rill-runtime VERSION)
+endif
+PKG_RELEASE:=11
 PKG_LICENSE:=MIT
 PKG_MAINTAINER:=Rill OpenWrt Packages maintainers
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/hello-yunshu/rill-ml.git
-PKG_SOURCE_VERSION:=a2fb93a46938cbce05696c113876ab00d5c80702
+PKG_SOURCE_VERSION:=50175cd54fce3a8b1cac77ec851dc468719181e8
 PKG_SOURCE_SUBDIR:=rill-ml-$(PKG_SOURCE_VERSION)
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_SOURCE_SUBDIR)
 RUST_PKG_LOCKED:=1

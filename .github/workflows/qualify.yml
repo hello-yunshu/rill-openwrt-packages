@@ -131,7 +131,7 @@ jobs:
             ${{ env.SDKDIR }}/feeds
             ${{ runner.temp }}/rustup
             ${{ runner.temp }}/cargo
-          key: rill-openwrt-env-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('.github/workflows/qualify.yml', 'metadata/build-toolchain.json', 'package/rill-runtime/Makefile', 'package/rill-runtime-manager/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
+          key: rill-openwrt-env-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('.github/workflows/qualify.yml', 'metadata/build-toolchain.json', 'VERSION', 'package/rill-runtime/Makefile', 'package/rill-runtime-manager/Makefile', 'package/rill-runtime-manager/VERSION', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
           restore-keys: |
             rill-openwrt-env-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-
 
@@ -146,19 +146,24 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ env.SDKDIR }}/build_dir/target-*/rill-ml-*/target
-          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('.github/workflows/qualify.yml', 'metadata/build-toolchain.json', 'metadata/rill-runtime.json', 'package/rill-runtime/Makefile', 'package/rill-runtime-manager/Makefile', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
+          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('.github/workflows/qualify.yml', 'metadata/build-toolchain.json', 'metadata/rill-runtime.json', 'VERSION', 'package/rill-runtime/Makefile', 'package/rill-runtime-manager/Makefile', 'package/rill-runtime-manager/VERSION', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
       - name: Prepare SDK and build package
         shell: bash
         run: |
           set -euo pipefail
           cd "$SDKDIR"
-          ./scripts/feeds update base packages
+          # The official SDK already includes its release-pinned base feed.
+          # Updating it tries to `git pull` from a detached release checkout.
+          ./scripts/feeds update packages
           python3 "$GITHUB_WORKSPACE/scripts/verify_sdk_feeds.py" "$SDKDIR"
           ./scripts/feeds install rust
           mkdir -p package/rill-runtime
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime/." package/rill-runtime/
+          cp "$GITHUB_WORKSPACE/VERSION" package/rill-runtime/VERSION
+          test "$(tr -d '\r\n' < package/rill-runtime/VERSION)" = "$(tr -d '\r\n' < "$GITHUB_WORKSPACE/VERSION")"
           mkdir -p package/rill-runtime-manager
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime-manager/." package/rill-runtime-manager/
+          test "$(tr -d '\r\n' < package/rill-runtime-manager/VERSION)" = "$(tr -d '\r\n' < "$GITHUB_WORKSPACE/package/rill-runtime-manager/VERSION")"
           {
             echo 'CONFIG_PACKAGE_rill-runtime=y'
             echo 'CONFIG_PACKAGE_rill-runtime-manager=y'
@@ -178,18 +183,24 @@ jobs:
           [[ "$(rustc --version)" == "rustc $expected_toolchain "* ]]
           unset CI
           target=package/rill-runtime/compile
+          failed_target="$target"
           jobs="$(($(nproc)+1))"
-          if make -j"$jobs" "$target" package/rill-runtime-manager/compile; then
-            exit 0
+          if make -j"$jobs" "$target"; then
+            failed_target=package/rill-runtime-manager/compile
+            if make -j"$jobs" "$failed_target"; then
+              exit 0
+            else
+              fast_rc=$?
+            fi
           else
             fast_rc=$?
           fi
-          echo "::error::Fast parallel OpenWrt build failed: $target"
+          echo "::error::Fast OpenWrt build failed: $failed_target"
           echo "::group::OpenWrt config at fast-build failure"
           if [ -f .config ]; then cat .config; fi
           echo "::endgroup::"
-          echo "::group::Serial verbose diagnostic: $target"
-          if make -j1 "$target" V=s; then
+          echo "::group::Serial verbose diagnostic: $failed_target"
+          if make -j1 "$failed_target" V=s; then
             diagnostic_rc=0
           else
             diagnostic_rc=$?
@@ -283,7 +294,7 @@ jobs:
             --arg pkgtype "${{ matrix.pkgtype }}" \
             --arg signing "unsigned" \
             --arg package "rill-runtime" \
-            --arg packageVersion "$(sed -n 's/^PKG_VERSION:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")-r$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")" \
+            --arg packageVersion "$(cat "$GITHUB_WORKSPACE/VERSION")-r$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")" \
             --arg packageRelease "$(sed -n 's/^PKG_RELEASE:=//p' "$GITHUB_WORKSPACE/package/rill-runtime/Makefile")" \
             '{openwrtVersion:$version,target:$target,subtarget:$subtarget,packageArch:$packageArch,pkgtype:$pkgtype,package:$package,packageVersion:$packageVersion,packageRelease:($packageRelease|tonumber),signing:$signing}' \
             > "$feed_dir/feed-metadata.json"

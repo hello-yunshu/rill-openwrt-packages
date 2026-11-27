@@ -82,11 +82,10 @@ def main() -> int:
 
     makefile = ROOT / "package/rill-runtime/Makefile"
     text = makefile.read_text(encoding="utf-8")
-    text, version_count = re.subn(r"(?m)^PKG_VERSION:=\S+$", f"PKG_VERSION:={version}", text)
     text, release_count = re.subn(r"(?m)^PKG_RELEASE:=\S+$", "PKG_RELEASE:=1", text)
     text, hash_count = re.subn(r"(?m)^PKG_HASH:=\S+$", f"PKG_HASH:={archive_hash}", text)
-    if (version_count, release_count, hash_count) != (1, 1, 1):
-        raise SystemExit("ERROR: expected exactly one PKG_VERSION/PKG_RELEASE/PKG_HASH")
+    if (release_count, hash_count) != (1, 1):
+        raise SystemExit("ERROR: expected exactly one PKG_RELEASE and PKG_HASH")
 
     owned = {
         "schemaVersion": 1,
@@ -117,10 +116,11 @@ def main() -> int:
         else:
             metadata[key] = value
     raw = json.dumps(metadata, indent=2, ensure_ascii=False) + "\n"
-    # Both representations are prepared and validated before either is replaced.
+    # Prepare the version, recipe and provenance before replacing any of them.
     if json.loads(raw)["package"]["version"] != version:
         raise SystemExit("ERROR: serialized package version mismatch")
-    replace_files({makefile: text.encode(), metadata_path: raw.encode()})
+    replace_files({ROOT / "VERSION": f"{version}\n".encode(),
+                   makefile: text.encode(), metadata_path: raw.encode()})
     if args.json:
         print(json.dumps(metadata, indent=2, ensure_ascii=False))
     else:

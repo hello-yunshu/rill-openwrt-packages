@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 try:  # executed as a script
+    from atomic_update import replace_files
     from check_upstream_version import (
         build_relevant_changes,
         changed_files,
@@ -25,6 +26,7 @@ try:  # executed as a script
         latest_release,
     )
 except ImportError:  # imported as scripts.pin_upstream from tests
+    from scripts.atomic_update import replace_files
     from scripts.check_upstream_version import (
         build_relevant_changes,
         changed_files,
@@ -35,6 +37,7 @@ except ImportError:  # imported as scripts.pin_upstream from tests
 ROOT = Path(__file__).resolve().parents[1]
 METADATA = Path("metadata/rill-runtime.json")
 RECIPE = Path("package/rill-runtime/Makefile")
+VERSION_FILE = Path("VERSION")
 READMES = (Path("README.md"), Path("README.en.md"))
 
 
@@ -81,7 +84,6 @@ def apply(root: Path, change: dict[str, object]) -> list[str]:
 
     recipe = (root / RECIPE).read_text(encoding="utf-8")
     replacements = {
-        r"^PKG_VERSION:=.*$": f"PKG_VERSION:={version}",
         r"^PKG_RELEASE:=.*$": f"PKG_RELEASE:={release}",
         r"^PKG_SOURCE_VERSION:=.*$": f"PKG_SOURCE_VERSION:={commit}",
     }
@@ -89,8 +91,6 @@ def apply(root: Path, change: dict[str, object]) -> list[str]:
         recipe, count = re.subn(pattern, line, recipe, count=1, flags=re.MULTILINE)
         if count != 1:
             raise RuntimeError(f"{RECIPE}: expected exactly one {pattern}")
-    (root / RECIPE).write_text(recipe, encoding="utf-8")
-
     metadata = read_metadata(root)
     upstream = metadata["upstream"]
     package = metadata["package"]
@@ -105,13 +105,14 @@ def apply(root: Path, change: dict[str, object]) -> list[str]:
         }
     )
     package.update({"version": version, "release": release})
-    (root / METADATA).write_text(
-        json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    updates = {
+        root / VERSION_FILE: f"{version}\n".encode(),
+        root / RECIPE: recipe.encode(),
+        root / METADATA: (json.dumps(metadata, indent=2, ensure_ascii=False) + "\n").encode(),
+    }
 
     old_package = f"{previous_version}-r{previous_release}"
     new_package = f"{version}-r{release}"
-    touched = [str(RECIPE), str(METADATA)]
     for readme in READMES:
         path = root / readme
         text = path.read_text(encoding="utf-8")
@@ -123,9 +124,9 @@ def apply(root: Path, change: dict[str, object]) -> list[str]:
         # metadata (and heal a README that already drifted).
         updated = re.sub(r"\b[0-9a-f]{40}\b", commit, updated)
         if updated != text:
-            path.write_text(updated, encoding="utf-8")
-            touched.append(str(readme))
-    return touched
+            updates[path] = updated.encode()
+    replace_files(updates)
+    return [str(path.relative_to(root)) for path in updates]
 
 
 def main() -> int:
