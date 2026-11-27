@@ -131,7 +131,7 @@ jobs:
             ${{ env.SDKDIR }}/feeds
             ${{ runner.temp }}/rustup
             ${{ runner.temp }}/cargo
-          key: rill-openwrt-env-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('.github/workflows/qualify.yml', 'metadata/build-toolchain.json', 'VERSION', 'package/rill-runtime/Makefile', 'package/rill-runtime-manager/Makefile', 'package/rill-runtime-manager/VERSION', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
+          key: rill-openwrt-env-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('.github/workflows/qualify.yml', 'metadata/build-toolchain.json', 'VERSION', 'package-version.mk', 'package/rill-runtime/**', 'package/rill-runtime-manager/**', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
           restore-keys: |
             rill-openwrt-env-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-
 
@@ -146,7 +146,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ env.SDKDIR }}/build_dir/target-*/rill-ml-*/target
-          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('.github/workflows/qualify.yml', 'metadata/build-toolchain.json', 'metadata/rill-runtime.json', 'VERSION', 'package/rill-runtime/Makefile', 'package/rill-runtime-manager/Makefile', 'package/rill-runtime-manager/VERSION', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
+          key: rill-openwrt-build-${{ runner.os }}-${{ matrix.branch }}-${{ matrix.package_arch }}-${{ hashFiles('.github/workflows/qualify.yml', 'metadata/build-toolchain.json', 'metadata/rill-runtime.json', 'VERSION', 'package-version.mk', 'package/rill-runtime/**', 'package/rill-runtime-manager/**', 'scripts/prepare_rust_toolchain.sh', 'scripts/stage_rust_toolchain.sh') }}
       - name: Prepare SDK and build package
         shell: bash
         run: |
@@ -161,10 +161,11 @@ jobs:
           ./scripts/feeds update packages
           python3 "$GITHUB_WORKSPACE/scripts/verify_sdk_feeds.py" "$SDKDIR"
           ./scripts/feeds install rust
+          cp "$GITHUB_WORKSPACE/VERSION" VERSION
+          cp "$GITHUB_WORKSPACE/package-version.mk" package-version.mk
           mkdir -p package/rill-runtime
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime/." package/rill-runtime/
-          cp "$GITHUB_WORKSPACE/VERSION" package/rill-runtime/VERSION
-          test "$(tr -d '\r\n' < package/rill-runtime/VERSION)" = "$(tr -d '\r\n' < "$GITHUB_WORKSPACE/VERSION")"
+          test "$(tr -d '\r\n' < package/rill-runtime/VERSION)" = "$(tr -d '\r\n' < VERSION)"
           mkdir -p package/rill-runtime-manager
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime-manager/." package/rill-runtime-manager/
           test "$(tr -d '\r\n' < package/rill-runtime-manager/VERSION)" = "$(tr -d '\r\n' < "$GITHUB_WORKSPACE/package/rill-runtime-manager/VERSION")"

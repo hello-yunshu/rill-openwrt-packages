@@ -13,7 +13,7 @@ from scripts import pin_upstream
 RECIPE = """include $(TOPDIR)/rules.mk
 
 PKG_NAME:=rill-runtime
-PKG_VERSION:=$(strip $(shell cat "$(RILL_VERSION_FILE)"))
+include $(PKG_MAKEFILE_DIR)package-version.mk
 PKG_RELEASE:=9
 PKG_SOURCE_VERSION:=1e962a82443088229714877eee98617f1596eee8
 """
@@ -70,16 +70,16 @@ class ApplyPinTest(unittest.TestCase):
         recipe = (self.root / pin_upstream.RECIPE).read_text(encoding="utf-8")
         self.assertIn("PKG_RELEASE:=10", recipe)
         self.assertIn(f"PKG_SOURCE_VERSION:={'a' * 40}", recipe)
-        self.assertIn('PKG_VERSION:=$(strip $(shell cat "$(RILL_VERSION_FILE)"))', recipe)
+        self.assertIn('include $(PKG_MAKEFILE_DIR)package-version.mk', recipe)
         readme = (self.root / "README.md").read_text(encoding="utf-8")
         self.assertIn("1.5.6-r10", readme)
         self.assertNotIn("1.5.6-r9", readme)
 
     def test_runtime_recipe_supports_sdk_staged_version_file(self):
         recipe = (pin_upstream.ROOT / pin_upstream.RECIPE).read_text(encoding="utf-8")
-        self.assertIn("RILL_RECIPE_DIR:=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))", recipe)
-        self.assertIn("RILL_SDK_VERSION_FILE:=$(TOPDIR)/package/rill-runtime/VERSION", recipe)
-        self.assertIn("$(RILL_SOURCE_VERSION_FILE) $(RILL_SDK_VERSION_FILE)", recipe)
+        self.assertIn('include $(PKG_MAKEFILE_DIR)package-version.mk', recipe)
+        self.assertTrue((pin_upstream.ROOT / "package/rill-runtime/VERSION").is_symlink())
+        self.assertTrue((pin_upstream.ROOT / "package/rill-runtime/package-version.mk").is_symlink())
 
     def test_new_version_rewrites_metadata(self):
         change = {**self.change, "version": "1.5.7", "release": 1}

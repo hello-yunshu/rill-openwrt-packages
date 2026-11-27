@@ -21,10 +21,14 @@ class UpdateTransactionTests(unittest.TestCase):
             return updater.main()
 
     def fixture(self, root):
-        (root/'package/rill-runtime').mkdir(parents=True)
+        package=root/'package/rill-runtime'
+        package.mkdir(parents=True)
         (root/'metadata').mkdir()
         (root/'VERSION').write_text('1.5.6\n')
-        text='PKG_VERSION:=$(strip $(shell cat "$(RILL_VERSION_FILE)"))\nPKG_RELEASE:=3\nPKG_HASH:='+'b'*64+'\n'
+        (root/'package-version.mk').write_text((updater.ROOT/'package-version.mk').read_text())
+        (package/'VERSION').symlink_to('../../VERSION')
+        (package/'package-version.mk').symlink_to('../../package-version.mk')
+        text='PKG_MAKEFILE_DIR:=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))\ninclude $(PKG_MAKEFILE_DIR)package-version.mk\nPKG_RELEASE:=3\nPKG_HASH:='+'b'*64+'\n'
         (root/'package/rill-runtime/Makefile').write_text(text)
         data={'schemaVersion':1,'extension':{'keep':True},
               'upstream':{'version':'1.5.6','tag':'v1.5.6','commit':'a'*40,'archiveSha256':'b'*64,'extension':42},
