@@ -152,8 +152,12 @@ jobs:
         run: |
           set -euo pipefail
           cd "$SDKDIR"
-          # The official SDK already includes its release-pinned base feed.
-          # Updating it tries to `git pull` from a detached release checkout.
+          # Some official SDK archives omit the base checkout. Bootstrap it
+          # from the SDK's pinned feed definition only when it is absent;
+          # updating an existing detached release checkout would try `git pull`.
+          if ! git -C feeds/base rev-parse --verify HEAD >/dev/null 2>&1; then
+            ./scripts/feeds update base
+          fi
           ./scripts/feeds update packages
           python3 "$GITHUB_WORKSPACE/scripts/verify_sdk_feeds.py" "$SDKDIR"
           ./scripts/feeds install rust
