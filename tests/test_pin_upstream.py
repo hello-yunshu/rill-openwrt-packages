@@ -77,6 +77,7 @@ class ApplyPinTest(unittest.TestCase):
 
     def test_runtime_recipe_supports_sdk_staged_version_file(self):
         recipe = (pin_upstream.ROOT / pin_upstream.RECIPE).read_text(encoding="utf-8")
+        self.assertIn("RILL_RECIPE_DIR:=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))", recipe)
         self.assertIn("RILL_SDK_VERSION_FILE:=$(TOPDIR)/package/rill-runtime/VERSION", recipe)
         self.assertIn("$(RILL_SOURCE_VERSION_FILE) $(RILL_SDK_VERSION_FILE)", recipe)
 
