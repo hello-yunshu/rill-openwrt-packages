@@ -75,6 +75,11 @@ class ApplyPinTest(unittest.TestCase):
         self.assertIn("1.5.6-r10", readme)
         self.assertNotIn("1.5.6-r9", readme)
 
+    def test_runtime_recipe_supports_sdk_staged_version_file(self):
+        recipe = (pin_upstream.ROOT / pin_upstream.RECIPE).read_text(encoding="utf-8")
+        self.assertIn("RILL_SDK_VERSION_FILE:=$(TOPDIR)/package/rill-runtime/VERSION", recipe)
+        self.assertIn("$(RILL_SOURCE_VERSION_FILE) $(RILL_SDK_VERSION_FILE)", recipe)
+
     def test_new_version_rewrites_metadata(self):
         change = {**self.change, "version": "1.5.7", "release": 1}
         pin_upstream.apply(self.root, change)

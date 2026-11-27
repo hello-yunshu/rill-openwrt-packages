@@ -160,6 +160,7 @@ jobs:
           mkdir -p package/rill-runtime
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime/." package/rill-runtime/
           cp "$GITHUB_WORKSPACE/VERSION" package/rill-runtime/VERSION
+          test "$(tr -d '\r\n' < package/rill-runtime/VERSION)" = "$(tr -d '\r\n' < "$GITHUB_WORKSPACE/VERSION")"
           mkdir -p package/rill-runtime-manager
           cp -a "$GITHUB_WORKSPACE/package/rill-runtime-manager/." package/rill-runtime-manager/
           {
